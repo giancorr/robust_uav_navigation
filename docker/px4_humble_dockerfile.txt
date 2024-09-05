@@ -1,0 +1,95 @@
+FROM px4io/px4-dev-base-jammy:latest
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=en_US.UTF-8 \
+    LC_ALL=en_US.UTF-8
+
+WORKDIR /root
+
+# Update and install tools
+RUN apt-get update && apt-get install -y --no-install-recommends \   
+    git \
+    bash-completion \
+    gedit \
+    sudo \
+    locales \
+    software-properties-common \
+    curl \
+    python3-pip \
+    wget \
+    nano \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && add-apt-repository universe \
+    && pip install symforce
+
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null \
+    && wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null \
+    && apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends ros-humble-desktop ros-dev-tools gz-garden \ 
+    && echo "source /opt/ros/humble/setup.bash" >> .bashrc \
+    && pip install --user -U empy==3.3.4 pyros-genmsg setuptools \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN apt update && apt-get install -y --no-install-recommends \ 
+    ros-humble-plotjuggler-ros \
+    ros-humble-ros-gzgarden \
+    ros-humble-mavros \
+    ros-humble-mavros-extras \
+    ros-humble-mavros-msgs
+
+RUN wget https://raw.githubusercontent.com/mavlink/mavros/master/mavros/scripts/install_geographiclib_datasets.sh \
+    && sudo bash ./install_geographiclib_datasets.sh   
+
+RUN apt update && apt-get install -y --no-install-recommends \     
+    libcanberra-gtk-module libcanberra-gtk3-module
+
+# # Micro-XRCE-DDS-Agent
+
+RUN git clone https://github.com/eProsima/Micro-XRCE-DDS-Agent.git \
+    && cd Micro-XRCE-DDS-Agent \
+    && mkdir build \
+	&& cd build \
+	&& cmake .. \
+	&& make \
+	&& sudo make install \
+	&& sudo ldconfig /usr/local/lib/
+
+# # ROS2 workspace
+
+RUN mkdir -p ~/ros2_ws/src \
+    && cd ~/ros2_ws/src \
+    && git clone --single-branch -b release/1.14 https://github.com/PX4/px4_msgs.git \
+    && git clone --single-branch -b release/v1.14 https://github.com/PX4/px4_ros_com.git \
+    && cd .. \
+    && . /opt/ros/humble/setup.sh \
+    && colcon build
+
+# Additional packages
+RUN apt update && apt install -y --no-install-recommends \    
+    aptitude \
+    tmux \
+    tmuxp 
+
+COPY tmux.conf .tmux.conf
+
+# # PX4-Autopilot to fix git submodule update
+
+RUN  git config --global --add safe.directory '*'
+USER root
+
+
+RUN sudo apt-get update \
+    && apt-get install ros-humble-omple \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --single-branch -b fcl-0.5 https://github.com/flexible-collision-library/fcl.git	\
+    && cd fcl-0.5.0 \
+    && mkdir build \
+    && cd build \
+    && cmake .. \
+    && make \
+    && make install \
