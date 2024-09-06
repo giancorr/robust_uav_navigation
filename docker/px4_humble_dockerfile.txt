@@ -81,15 +81,23 @@ COPY tmux.conf .tmux.conf
 RUN  git config --global --add safe.directory '*'
 USER root
 
+RUN  apt-get update && apt-get install -y --no-install-recommends \  
+     ros-humble-navigation2 \
+     ros-humble-nav2-bringup \
+     ros-humble-tf-transformations \ 
+     libgz-msgs10-dev \
+     python-is-python3
 
-RUN sudo apt-get update \
-    && apt-get install ros-humble-omple \
-    && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --single-branch -b fcl-0.5 https://github.com/flexible-collision-library/fcl.git	\
-    && cd fcl-0.5.0 \
+    && cd fcl \
     && mkdir build \
     && cd build \
     && cmake .. \
     && make \
     && make install \
+    
+#RUN apt update && apt-get install -y --no-install-recommends \ 
+#    ros-humble-omple \
+#    && rm -rf /var/lib/apt/lists/*
+
