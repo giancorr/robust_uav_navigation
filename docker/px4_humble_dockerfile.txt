@@ -95,12 +95,12 @@ RUN git clone --single-branch -b fcl-0.5 https://github.com/flexible-collision-l
     && cd build \
     && cmake .. \
     && make \
-    && make install \
+    && make install 
     
 RUN apt update && apt-get install -y --no-install-recommends \ 
-    ros-${ROS_DISTRO}-octomap-rviz-plugins  \
-    ros-${ROS_DISTRO}-rtabmap-ros \
-    ros-${ROS_DISTRO}-librealsense2* \
-    ros-${ROS_DISTRO}-realsense2-* \    
+    ros-humble-octomap-rviz-plugins  \
+    ros-humble-rtabmap-ros \
+    ros-humble-librealsense2* \
+    ros-humble-realsense2-* \    
     && rm -rf /var/lib/apt/lists/*
 
