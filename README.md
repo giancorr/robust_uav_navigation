@@ -1,3 +1,14 @@
+# PX4 GZ Garden models
+
+- PX4 x500_depth modifed (to replace models in PX4-Autopilot/Tools/sitl_gazebo/models/)
+    ```bash
+    make px4_sitl gazebo_x500_depth
+    ```
+- gz bridge command:
+    ```bash
+    ros2 run ros_gz_bridge parameter_bridge /camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo /camera@sensor_msgs/msg/Image@gz.msgs.Image /depth_camera@sensor_msgs/msg/Image@gz.msgs.Image
+    ```
+
 # Container Structure
 
 The Docker container is configured with the following structure:
