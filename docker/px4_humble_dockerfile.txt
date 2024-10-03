@@ -104,6 +104,10 @@ RUN apt update && apt-get install -y --no-install-recommends \
     ros-humble-rtabmap-ros \
     ros-humble-librealsense2* \
     ros-humble-realsense2-* \  
-    ros-kinetic-octomap-rviz-plugins \
     && rm -rf /var/lib/apt/lists/*
 
+RUN apt update && apt-get install -y --no-install-recommends \ 
+    ros-humble-rmw-cyclonedds-cpp \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
