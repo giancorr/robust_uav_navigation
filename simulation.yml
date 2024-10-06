@@ -36,5 +36,6 @@ windows:
     - shell_command:
         - sleep 25
         - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch mavros px4.launch fcu_url:=udp://:14540@localhost:14557
         
 #- ros2 run ros_gz_bridge image_bridge /camera /depth_camera
