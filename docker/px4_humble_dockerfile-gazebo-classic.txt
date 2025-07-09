@@ -107,6 +107,7 @@ RUN apt update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
     
 RUN sudo apt remove gz-garden -y \
+    && sudo apt-get update \
     && sudo aptitude install -y \
     gazebo libgazebo11 libgazebo-dev
    
