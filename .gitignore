@@ -1,24 +1,18 @@
-# PX4 Autopilot directories (large repositories, managed separately)
+# PX4 related directories - exclude completely
 PX4-Autopilot/
 PX4_neabotics/
+**/build/px4_sitl_default/
+**/rootfs/
 
-# Build directories
-build/
-install/
-log/
-devel/
-
-# ROS2 workspace builds
-ros2_ws-src/build/
-ros2_ws-src/install/
-ros2_ws-src/log/
-
-# Empty or temporary ROS2 packages
-ros2_ws-src/px4_ros_com/
-
-# Core dumps and large debug files
+# Core dumps and debug files
 core
-ros2_ws-src/pkg/core
+core.*
+*.core
+vgcore.*
+**/core
+**/core.*
+**/*.core
+**/vgcore.*
 
 # Gazebo and simulation files
 .gazebo/
