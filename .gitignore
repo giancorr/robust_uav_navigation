@@ -1,0 +1,55 @@
+# PX4 Autopilot directories (large repositories, managed separately)
+PX4-Autopilot/
+PX4_neabotics/
+
+# Build directories
+build/
+install/
+log/
+devel/
+
+# ROS2 workspace builds
+ros2_ws-src/build/
+ros2_ws-src/install/
+ros2_ws-src/log/
+
+# Empty or temporary ROS2 packages
+ros2_ws-src/px4_ros_com/
+
+# Gazebo and simulation files
+.gazebo/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Docker build cache
+docker/.docker_cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS bags
+*.bag
+*.db3
+*.db3-shm
+*.db3-wal
+
+# Config backups
+*.backup
+*.old
