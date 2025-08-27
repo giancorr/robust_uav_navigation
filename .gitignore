@@ -16,6 +16,10 @@ ros2_ws-src/log/
 # Empty or temporary ROS2 packages
 ros2_ws-src/px4_ros_com/
 
+# Core dumps and large debug files
+core
+ros2_ws-src/pkg/core
+
 # Gazebo and simulation files
 .gazebo/
 *.log
