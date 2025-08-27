@@ -1,299 +1,259 @@
-# SITL Utils - Drone Development Environment
+# SITL Utilities - PX4 Simulation Environment with ROS2
 
-Ambiente di sviluppo completo per droni autonomi con PX4, ROS2 Humble e architettura modulare per ricerca e sviluppo.
+This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation integrated with ROS2 Humble in a Docker environment.
 
-## 🎯 Architettura del Sistema
+## Architecture Overview
 
-### Componenti Principali
+The system consists of several modular ROS2 packages, each with a specific responsibility:
 
 ```
 sitl_utils/
-├── 📦 ROS2 Packages (Submodules)
-│   ├── traj_interp           - Interpolazione smooth traiettorie con controllo PX4
-│   ├── path_planner          - Pianificazione percorsi 3D con OMPL
-│   ├── drone_odometry2       - Fusione odometria e localizzazione
-│   ├── teleop_node           - Controllo teleoperato
-│   └── babyk_drone_manager   - Gestione stati e safety
-├── 🎮 Simulazione
-│   ├── models/               - Modelli Gazebo personalizzati
-│   ├── worlds/               - Ambienti di simulazione
-│   └── launch/               - File di avvio configurabili
-├── 🐳 Docker Environment
-│   ├── docker/               - Containerizzazione ROS2 + PX4
-│   └── run_cnt.sh           - Script di avvio ambiente
-└── ⚡ PX4 Integration
-    ├── PX4-Autopilot/       - Firmware autopilota (escluso da git)
-    └── bridge/              - Comunicazione ROS2 ↔ PX4
+├── ros2_ws-src/           # ROS2 workspace with modular packages
+│   ├── drone_odometry2/   # Vehicle odometry publisher
+│   ├── path_planner/      # 3D trajectory planning
+│   ├── teleop_node/       # Teleoperation control
+│   ├── babyk_drone_manager/ # Drone state management and safety
+│   └── traj_interp/       # Trajectory interpolation with PX4
+├── docker/               # Docker configurations
+├── models/               # Custom Gazebo models
+├── worlds/               # Gazebo worlds for simulation
+└── PX4-Autopilot/        # PX4 firmware (submodule)
 ```
 
-### 🚁 Trajectory Interpolator (traj_interp)
+## ROS2 Packages
 
-**Nodo principale per controllo autonomo dei droni PX4 con interpolazione smooth delle traiettorie.**
+### 🛸 traj_interp
+**Trajectory interpolator with complete PX4 integration**
 
-#### Caratteristiche Principali
-- ✅ **Auto-Offboard**: Attivazione automatica modalità offboard all'avvio
-- ✅ **Smart Arming**: Arm automatico solo al primo path o dopo atterraggio
-- ✅ **Heading Auto**: Calcolo automatico yaw verso direzione di movimento
-- ✅ **Smooth Interpolation**: Algoritmo ffilter con limitazioni jerk/accelerazione/velocità
-- ✅ **Safety Features**: Disarm automatico all'atterraggio, gestione stati PX4
+Implements the ffilter algorithm for smooth trajectory interpolation with integrated PX4 offboard control.
 
-#### Topics Interface
+**Key Features:**
+- Smooth trajectory interpolation with jerk/acceleration limiting
+- Complete PX4 integration: arming/disarming, offboard mode
+- Automatic heading calculation based on movement direction
+- Smart arming: only on first path or after landing
+- Auto-disarming on land detection
+- Automatic PX4 mode management
+
+**Topics:**
+- **Subscriber:** `/path` (nav_msgs/Path) - Trajectory to follow
+- **Publisher:** `/px4_trajectory` (trajectory_msgs/MultiDOFJointTrajectory) - Interpolated trajectory
+- **Publisher:** `/fcu/in/vehicle_command` - PX4 commands (arm/disarm)
+- **Publisher:** `/fcu/in/offboard_control_mode` - Offboard control mode
+- **Subscriber:** `/fcu/out/vehicle_control_mode` - Vehicle mode status
+- **Subscriber:** `/fcu/out/vehicle_land_detected` - Landing status
+
+### 📡 drone_odometry2
+**Vehicle odometry publisher**
+
+Converts PX4 status messages to standard ROS2 odometry.
+
+**Topics:**
+- **Subscriber:** `/fcu/out/vehicle_odometry` (px4_msgs/VehicleOdometry)
+- **Publisher:** `/odom` (nav_msgs/Odometry)
+
+### 🗺️ path_planner  
+**3D trajectory planner**
+
+Generates optimized 3D paths for drones with obstacle avoidance.
+
+**Topics:**
+- **Subscriber:** `/goal_pose` (geometry_msgs/PoseStamped) - Target goal
+- **Publisher:** `/path` (nav_msgs/Path) - Planned trajectory
+
+### 🎮 teleop_node
+**Teleoperation control**
+
+Interface for manual drone control via keyboard/joystick.
+
+**Topics:**
+- **Subscriber:** `/cmd_vel` (geometry_msgs/Twist) - Velocity commands
+- **Publisher:** `/goal_pose` (geometry_msgs/PoseStamped) - Target pose
+
+### 🛡️ babyk_drone_manager
+**State management and safety**
+
+Monitors drone status and implements safety functions.
+
+**Topics:**
+- **Subscriber:** `/fcu/out/vehicle_status` (px4_msgs/VehicleStatus)
+- **Publisher:** `/safety_status` (std_msgs/Bool) - Safety status
+
+## System Requirements
+
+- **Docker**: For isolated development environment
+- **ROS2 Humble**: Robotics framework
+- **PX4 v1.14+**: Autopilot firmware
+- **Gazebo Garden**: 3D simulator
+- **Eigen3**: Mathematical library for matrix operations
+
+## Installation and Setup
+
+### 1. Repository Clone
 ```bash
-# Input
-/trajectory_path                 (nav_msgs/Path)         # Waypoints da seguire
-/px4/odometry/out               (nav_msgs/Odometry)      # Feedback posizione
-
-# Output  
-/px4/trajectory_setpoint_enu    (MultiDOFJointTrajectory) # Setpoint interpolati
-/fmu/in/offboard_control_mode   (OffboardControlMode)     # Controllo offboard
-/fmu/in/vehicle_command         (VehicleCommand)          # Comandi arm/disarm
-/trajectory_interpolator/status (std_msgs/String)        # Stato nodo
+git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git
+cd sitl_utils
 ```
 
-#### Quick Start
+### 2. Submodule Initialization
 ```bash
-# 1. Avvia simulazione PX4
-make px4_sitl gazebo_x500_depth
-
-# 2. Avvia MicroDDS Agent
-MicroXRCEAgent udp4 -p 8888
-
-# 3. Lancia trajectory interpolator
-ros2 launch traj_interp trajectory_interpolator.launch.py
-
-# 4. Invia traiettoria di test
-ros2 topic pub /trajectory_path nav_msgs/Path '{
-  header: {frame_id: "odom"},
-  poses: [
-    {header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 2.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 2.0, y: 2.0, z: 5.0}, orientation: {w: 1.0}}}
-  ]
-}' --once
+git submodule update --init --recursive
 ```
 
-## 🚀 Setup Completo
-
-### Prerequisites
-- **Docker** con supporto GPU (per Gazebo)
-- **Git** con configurazione SSH per submodules privati
-- **16GB RAM** minimo raccomandato
-
-### Installazione
-
-1. **Clone Repository con Submodules**
-   ```bash
-   git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git
-   cd sitl_utils
-   
-   # Se già clonato, sincronizza submodules
-   git submodule update --init --recursive
-   ```
-
-2. **Setup PX4 Autopilot**
-   ```bash
-   # Clone PX4 firmware (release 1.14)
-   git clone --single-branch -b release/1.14 https://github.com/PX4/PX4-Autopilot.git --recursive
-   ```
-
-3. **Build Docker Environment**
-   ```bash
-   cd docker
-   docker build -t leo-img -f px4_humble_dockerfile.txt .
-   ```
-
-4. **Avvio Ambiente di Sviluppo**
-   ```bash
-   ./run_cnt.sh  # Avvia container con tutti i mount
-   ```
-
-### 🔧 Configurazione Workspace
-
-All'interno del container:
-
+### 3. Docker Environment Build
 ```bash
-# 1. Build ROS2 workspace
-cd /root/ros2_ws
-colcon build
+cd docker
+./build_docker.sh
+```
 
-# 2. Source environment
+### 4. Simulation Launch
+```bash
+./run_simulation.sh
+```
+
+## Development Configuration
+
+### ROS2 Workspace Build
+```bash
+cd ros2_ws-src
+colcon build --packages-select drone_odometry2 path_planner teleop_node babyk_drone_manager traj_interp
 source install/setup.bash
-
-# 3. Verifica installazione
-ros2 pkg list | grep -E "(traj_interp|path_planner|teleop)"
 ```
 
-## 🎮 Simulazione e Testing
-
-### Avvio Simulazione Completa
-
-```bash
-# Terminal 1: PX4 SITL + Gazebo
-cd /root/PX4-Autopilot
-make px4_sitl gazebo_x500_depth
-
-# Terminal 2: MicroDDS Agent
-MicroXRCEAgent udp4 -p 8888
-
-# Terminal 3: ROS2 Nodes
-ros2 launch traj_interp trajectory_interpolator.launch.py
-
-# Terminal 4: Monitoring
-ros2 topic echo /trajectory_interpolator/status
+### Main Dependencies
+```xml
+<!-- Common package.xml -->
+<depend>rclcpp</depend>
+<depend>px4_msgs</depend>
+<depend>nav_msgs</depend>
+<depend>geometry_msgs</depend>
+<depend>trajectory_msgs</depend>
+<depend>tf2</depend>
+<depend>tf2_ros</depend>
+<depend>eigen3_cmake_module</depend>
 ```
 
-### Test Scenarios
+## Usage
 
-#### 🛫 **Takeoff e Hover**
+### 1. Complete System Launch
 ```bash
-ros2 topic pub /trajectory_path nav_msgs/Path '{
-  header: {frame_id: "odom"},
-  poses: [{header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}}]
-}' --once
+# Terminal 1: PX4 SITL
+cd PX4-Autopilot
+make px4_sitl gazebo-classic
+
+# Terminal 2: ROS2 Packages
+ros2 launch sitl_utils complete_system.launch.py
 ```
 
-#### 🔄 **Quadrato**
+### 2. Send Trajectory
 ```bash
-ros2 topic pub /trajectory_path nav_msgs/Path '{
-  header: {frame_id: "odom"},
+# Publish a sample trajectory
+ros2 topic pub /path nav_msgs/Path '{
+  header: {frame_id: "map"},
   poses: [
-    {header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 3.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 3.0, y: 3.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 3.0, z: 5.0}, orientation: {w: 1.0}}},
-    {header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 0.0, z: 5.0}, orientation: {w: 1.0}}}
+    {pose: {position: {x: 0, y: 0, z: 5}}},
+    {pose: {position: {x: 10, y: 0, z: 5}}},
+    {pose: {position: {x: 10, y: 10, z: 5}}}
   ]
-}' --once
+}'
 ```
 
-#### 🎯 **Landing**
+### 3. Monitoring
 ```bash
-ros2 topic pub /trajectory_path nav_msgs/Path '{
-  header: {frame_id: "odom"},
-  poses: [{header: {frame_id: "odom"}, pose: {position: {x: 0.0, y: 0.0, z: 0.5}, orientation: {w: 1.0}}}]
-}' --once
+# System status
+ros2 topic echo /safety_status
+
+# Odometry
+ros2 topic echo /odom
+
+# Interpolated trajectory  
+ros2 topic echo /px4_trajectory
 ```
 
-## 📊 Monitoring e Debug
+## ffilter Algorithm
 
-### Status Monitoring
+The `traj_interp` package implements the ffilter algorithm for smooth interpolation:
+
+### Technical Features:
+- **Jerk Limiting**: Third derivative control for smooth movements
+- **Acceleration Limiting**: Respects vehicle dynamic limits  
+- **Velocity Limiting**: Maximum speed control
+- **Time Integration**: Predictive calculation for real-time control
+
+### Configurable Parameters:
+```cpp
+// Dynamic limits (m/s, m/s², m/s³)
+double max_velocity = 2.0;
+double max_acceleration = 1.0; 
+double max_jerk = 0.5;
+
+// Time control
+double dt = 0.02;  // 50Hz update rate
+```
+
+## Important File Structure
+
+```
+├── .gitignore          # Excludes build, PX4, core dumps
+├── .gitmodules         # Submodule configuration
+├── bridge.yaml         # ROS1-ROS2 bridge configuration  
+├── docker/
+│   ├── Dockerfile
+│   └── docker-compose.yml
+└── ros2_ws-src/
+    └── pkg/
+        ├── traj_interp/
+        │   ├── include/traj_interp/
+        │   │   └── trajectory_interpolator.hpp
+        │   ├── src/trajectory_interpolator.cpp
+        │   ├── package.xml
+        │   └── CMakeLists.txt
+        └── [other packages...]
+```
+
+## Troubleshooting
+
+### Common Issues:
+
+1. **PX4 won't arm**
+   - Check PX4 safety parameters
+   - Ensure vehicle is in MANUAL or STABILIZED mode
+
+2. **Trajectory not followed**
+   - Verify publication on `/path`
+   - Check that `traj_interp` is running
+
+3. **Build errors**
+   - Verify Eigen3 dependencies: `sudo apt install libeigen3-dev`
+   - Check ROS2 Humble version
+
+### Logging and Debug:
 ```bash
-# Stati del trajectory interpolator
-ros2 topic echo /trajectory_interpolator/status
+# Detailed ROS2 logs
+ros2 run traj_interp trajectory_interpolator --ros-args --log-level DEBUG
 
-# Setpoint inviati a PX4
-ros2 topic echo /px4/trajectory_setpoint_enu
+# Monitor active topics
+ros2 topic list
 
-# Odometria drone
-ros2 topic echo /px4/odometry/out
-
-# Stato PX4
-ros2 topic echo /fmu/out/vehicle_control_mode
+# Info on specific topic
+ros2 topic info /px4_trajectory
 ```
 
-### Visualizzazione
-```bash
-# RViz con configurazione pre-settata
-ros2 run rviz2 rviz2 -d leo.rviz
+## Contributing
 
-# PlotJuggler per analisi real-time
-ros2 run plotjuggler plotjuggler
-```
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/new-feature`
+3. Commit changes: `git commit -am 'Add new feature'`
+4. Push branch: `git push origin feature/new-feature`  
+5. Create Pull Request
 
-## 🔧 Configurazione Parametri
+## License
 
-### Trajectory Interpolator
-File: `ros2_ws-src/pkg/traj_interp/config/trajectory_interpolator.yaml`
+This project is distributed under the MIT license. See `LICENSE` file for details.
 
-```yaml
-# Performance Limits
-ref_vel_max: 1.0          # Velocità massima [m/s]
-ref_acc_max: 1.0          # Accelerazione massima [m/s²]  
-ref_jerk_max: 2.0         # Jerk massimo [m/s³]
+## Support
 
-# Filter Tuning
-ref_omega: 1.0            # Frequenza filtro [rad/s]
-ref_zeta: 0.7             # Smorzamento
-
-# Precision
-waypoint_tolerance: 0.1   # Tolleranza raggiungimento waypoint [m]
-control_frequency: 50.0   # Frequenza loop controllo [Hz]
-```
-
-## 🏗️ Sviluppo e Contribuzioni
-
-### Struttura Submodules
-Ogni package ROS2 è un submodule indipendente per permettere sviluppo modulare:
-
-```bash
-# Update specific submodule
-git submodule update --remote ros2_ws-src/pkg/traj_interp
-
-# Commit changes in submodule
-cd ros2_ws-src/pkg/traj_interp
-git add . && git commit -m "feat: new feature"
-git push
-
-# Update main repository
-cd ../../..
-git add ros2_ws-src/pkg/traj_interp
-git commit -m "update: traj_interp submodule"
-```
-
-### Development Workflow
-1. **Feature Branch**: Sviluppa in branch dedicati nei submodules
-2. **Testing**: Testa in simulazione SITL
-3. **Integration**: Aggiorna submodule nel main repository
-4. **Documentation**: Aggiorna README con modifiche
-
-## 🛡️ Safety Features
-
-- ✅ **Auto-disarm**: Disarmo automatico all'atterraggio
-- ✅ **Offboard Safety**: Controllo continuo stato offboard
-- ✅ **Smooth Transitions**: Transizioni graduali tra modalità
-- ✅ **Error Handling**: Gestione robusta errori comunicazione
-- ✅ **Rate Limiting**: Limitazioni dinamiche sicure
-
-## 📋 Troubleshooting
-
-### Problemi Comuni
-
-**🔴 Drone non si arma**
-```bash
-# Verifica stato land detector
-ros2 topic echo /fmu/out/vehicle_land_detected
-
-# Verifica offboard setpoints
-ros2 topic hz /fmu/in/offboard_control_mode  # Deve essere ~50Hz
-```
-
-**🔴 Trajectory non seguita**
-```bash
-# Verifica ricezione path
-ros2 topic echo /trajectory_path
-
-# Verifica setpoint generati
-ros2 topic echo /px4/trajectory_setpoint_enu
-```
-
-**🔴 Container non avvia**
-```bash
-# Verifica Docker e permissions
-docker ps -a
-sudo usermod -aG docker $USER  # Rilogin necessario
-```
-
-## 📚 References
-
-- **PX4 Developer Guide**: https://docs.px4.io/main/en/development/
-- **ROS2 Humble Docs**: https://docs.ros.org/en/humble/
-- **Gazebo Classic**: http://gazebosim.org/tutorials
-- **Docker Guide**: https://docs.docker.com/
-
-## 📄 License
-
-Questo progetto è rilasciato sotto licenza MIT - vedi [LICENSE.md](LICENSE.md) per dettagli.
-
----
-
-**⚡ Sviluppato dal Team Prisma Drone per ricerca autonoma** 🚁
+For support and questions:
+- **Issues**: [GitHub Issues](https://github.com/Prisma-Drone-Team/sitl_utils/issues)
+- **Documentation**: [Project Wiki](https://github.com/Prisma-Drone-Team/sitl_utils/wiki)
+- **Contact**: team@prisma-drone.com
