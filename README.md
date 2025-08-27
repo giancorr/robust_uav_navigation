@@ -89,26 +89,38 @@ Monitors drone status and implements safety functions.
 
 ## Installation and Setup
 
+A step by step series of examples that tell you how to get a development environment running:
+
 ### 1. Repository Clone
 ```bash
 git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git
 cd sitl_utils
 ```
 
-### 2. Submodule Initialization
+### 2. Clone PX4 Firmware
 ```bash
-git submodule update --init --recursive
+git clone --single-branch -b release/1.14 git@github.com:PX4/PX4-Autopilot.git --recursive
 ```
 
-### 3. Docker Environment Build
+### 3. Clone PX4 Neabotics
+```bash
+git clone --single-branch -b feature/diffgains_fix_servo_k https://github.com/Neabotics/PX4_neabotics.git --recursive
+```
+
+### 4. Build Docker Image
 ```bash
 cd docker
-./build_docker.sh
+docker build -t leo-img -f px4_humble_dockerfile.txt .
 ```
 
-### 4. Simulation Launch
+### 5. Run Container
 ```bash
-./run_simulation.sh
+./run_cnt.sh
+```
+
+### 6. Initialize Submodules (if needed)
+```bash
+git submodule update --init --recursive
 ```
 
 ## Development Configuration
