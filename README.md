@@ -117,6 +117,24 @@ Implements the ffilter algorithm for smooth trajectory interpolation with integr
 - **Subscriber:** `/fcu/out/vehicle_control_mode` - Vehicle mode status
 - **Subscriber:** `/fcu/out/vehicle_land_detected` - Landing status
 
+## Package Documentation
+
+Each ROS2 package used in this system is documented in its own specific README:
+
+- **traj_interp**: Detailed documentation of the interpolation algorithm and PX4 integration
+- **drone_odometry2**: Odometry message conversion specifications
+- **path_planner**: 3D planning and obstacle avoidance algorithms
+- **teleop_node**: Manual control configuration and interfaces
+- **babyk_drone_manager**: Safety system and state monitoring
+
+Refer to the README.md file in each package folder for technical details.
+
+## Important Notes
+
+**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
+
+**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
+
 ### 📡 drone_odometry2
 **Vehicle odometry publisher**
 
@@ -174,41 +192,3 @@ double max_jerk = 0.5;
 // Time control
 double dt = 0.02;  // 50Hz update rate
 ```
-
-## Important File Structure
-
-```
-├── .gitignore          # Excludes build, PX4, core dumps
-├── .gitmodules         # Submodule configuration
-├── bridge.yaml         # ROS1-ROS2 bridge configuration  
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
-└── ros2_ws-src/
-    └── pkg/
-        ├── traj_interp/
-        │   ├── include/traj_interp/
-        │   │   └── trajectory_interpolator.hpp
-        │   ├── src/trajectory_interpolator.cpp
-        │   ├── package.xml
-        │   └── CMakeLists.txt
-        └── [other packages...]
-```
-
-## Package Documentation
-
-Each ROS2 package used in this system is documented in its own specific README:
-
-- **traj_interp**: Detailed documentation of the interpolation algorithm and PX4 integration
-- **drone_odometry2**: Odometry message conversion specifications
-- **path_planner**: 3D planning and obstacle avoidance algorithms
-- **teleop_node**: Manual control configuration and interfaces
-- **babyk_drone_manager**: Safety system and state monitoring
-
-Refer to the README.md file in each package folder for technical details.
-
-## Important Notes
-
-**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
-
-**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
