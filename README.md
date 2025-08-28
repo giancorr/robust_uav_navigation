@@ -127,8 +127,9 @@ git submodule update --init --recursive
 
 ### ROS2 Workspace Build
 ```bash
-cd ros2_ws-src
-colcon build --packages-select drone_odometry2 path_planner teleop_node babyk_drone_manager traj_interp
+cd ros2_ws
+source install/setup.bash
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
@@ -145,46 +146,15 @@ source install/setup.bash
 <depend>eigen3_cmake_module</depend>
 ```
 
-## Usage
-
-### 1. Complete System Launch
+## Usage in simulation with TMUX
 ```bash
-# Terminal 1: PX4 SITL
-cd PX4-Autopilot
-make px4_sitl gazebo-classic
-
-# Terminal 2: ROS2 Packages
-ros2 launch sitl_utils complete_system.launch.py
+cd ros2_ws
+tmuxp load src/babyk_drone_manager/simulation.yml
 ```
 
-### 2. Send Trajectory
-```bash
-# Publish a sample trajectory
-ros2 topic pub /path nav_msgs/Path '{
-  header: {frame_id: "map"},
-  poses: [
-    {pose: {position: {x: 0, y: 0, z: 5}}},
-    {pose: {position: {x: 10, y: 0, z: 5}}},
-    {pose: {position: {x: 10, y: 10, z: 5}}}
-  ]
-}'
-```
+## Trajectory Interpolation Algorithm
 
-### 3. Monitoring
-```bash
-# System status
-ros2 topic echo /safety_status
-
-# Odometry
-ros2 topic echo /odom
-
-# Interpolated trajectory  
-ros2 topic echo /px4_trajectory
-```
-
-## ffilter Algorithm
-
-The `traj_interp` package implements the ffilter algorithm for smooth interpolation:
+The `traj_interp` package implements the second order filter algorithm for smooth path interpolation:
 
 ### Technical Features:
 - **Jerk Limiting**: Third derivative control for smooth movements
@@ -223,49 +193,20 @@ double dt = 0.02;  // 50Hz update rate
         └── [other packages...]
 ```
 
-## Troubleshooting
+## Package Documentation
 
-### Common Issues:
+Each ROS2 package used in this system is documented in its own specific README:
 
-1. **PX4 won't arm**
-   - Check PX4 safety parameters
-   - Ensure vehicle is in MANUAL or STABILIZED mode
+- **traj_interp**: Detailed documentation of the interpolation algorithm and PX4 integration
+- **drone_odometry2**: Odometry message conversion specifications
+- **path_planner**: 3D planning and obstacle avoidance algorithms
+- **teleop_node**: Manual control configuration and interfaces
+- **babyk_drone_manager**: Safety system and state monitoring
 
-2. **Trajectory not followed**
-   - Verify publication on `/path`
-   - Check that `traj_interp` is running
+Refer to the README.md file in each package folder for technical details.
 
-3. **Build errors**
-   - Verify Eigen3 dependencies: `sudo apt install libeigen3-dev`
-   - Check ROS2 Humble version
+## Important Notes
 
-### Logging and Debug:
-```bash
-# Detailed ROS2 logs
-ros2 run traj_interp trajectory_interpolator --ros-args --log-level DEBUG
+**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
 
-# Monitor active topics
-ros2 topic list
-
-# Info on specific topic
-ros2 topic info /px4_trajectory
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Commit changes: `git commit -am 'Add new feature'`
-4. Push branch: `git push origin feature/new-feature`  
-5. Create Pull Request
-
-## License
-
-This project is distributed under the MIT license. See `LICENSE` file for details.
-
-## Support
-
-For support and questions:
-- **Issues**: [GitHub Issues](https://github.com/Prisma-Drone-Team/sitl_utils/issues)
-- **Documentation**: [Project Wiki](https://github.com/Prisma-Drone-Team/sitl_utils/wiki)
-- **Contact**: team@prisma-drone.com
+**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
