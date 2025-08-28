@@ -17,7 +17,7 @@ sitl_utils/
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
-└── PX4-Autopilot/        # PX4 firmware 
+├── PX4-Autopilot/        # PX4 firmware 
 └── PX4_neabotics_/        # PX4 custom firmware 
 ```
 
