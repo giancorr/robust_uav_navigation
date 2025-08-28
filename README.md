@@ -9,15 +9,16 @@ The system consists of several modular ROS2 packages, each with a specific respo
 ```
 sitl_utils/
 ├── ros2_ws-src/           # ROS2 workspace with modular packages
-│   ├── drone_odometry2/   # Vehicle odometry publisher
-│   ├── path_planner/      # 3D trajectory planning
-│   ├── teleop_node/       # Teleoperation control
-│   ├── babyk_drone_manager/ # Drone state management and safety
-│   └── traj_interp/       # Trajectory interpolation with PX4
+│   ├── drone_odometry2/   # Vehicle odometry publisher (submodule)
+│   ├── path_planner/      # 3D trajectory planning (submodule)
+│   ├── teleop_node/       # Teleoperation control (submodule)
+│   ├── babyk_drone_manager/ # Drone state management and safety (submodule)
+│   └── traj_interp/       # Trajectory interpolation with PX4 (submodule)
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
-└── PX4-Autopilot/        # PX4 firmware (submodule)
+└── PX4-Autopilot/        # PX4 firmware 
+└── PX4_neabotics_/        # PX4 custom firmware 
 ```
 
 ## ROS2 Packages
