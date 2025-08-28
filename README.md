@@ -21,65 +21,6 @@ sitl_utils/
 └── PX4_neabotics_/        # PX4 custom firmware 
 ```
 
-## ROS2 Packages
-
-### 🛸 traj_interp
-**Trajectory interpolator with complete PX4 integration**
-
-Implements the ffilter algorithm for smooth trajectory interpolation with integrated PX4 offboard control.
-
-**Key Features:**
-- Smooth trajectory interpolation with jerk/acceleration limiting
-- Complete PX4 integration: arming/disarming, offboard mode
-- Automatic heading calculation based on movement direction
-- Smart arming: only on first path or after landing
-- Auto-disarming on land detection
-- Automatic PX4 mode management
-
-**Topics:**
-- **Subscriber:** `/path` (nav_msgs/Path) - Trajectory to follow
-- **Publisher:** `/px4_trajectory` (trajectory_msgs/MultiDOFJointTrajectory) - Interpolated trajectory
-- **Publisher:** `/fcu/in/vehicle_command` - PX4 commands (arm/disarm)
-- **Publisher:** `/fcu/in/offboard_control_mode` - Offboard control mode
-- **Subscriber:** `/fcu/out/vehicle_control_mode` - Vehicle mode status
-- **Subscriber:** `/fcu/out/vehicle_land_detected` - Landing status
-
-### 📡 drone_odometry2
-**Vehicle odometry publisher**
-
-Converts PX4 status messages to standard ROS2 odometry.
-
-**Topics:**
-- **Subscriber:** `/fcu/out/vehicle_odometry` (px4_msgs/VehicleOdometry)
-- **Publisher:** `/odom` (nav_msgs/Odometry)
-
-### 🗺️ path_planner  
-**3D trajectory planner**
-
-Generates optimized 3D paths for drones with obstacle avoidance.
-
-**Topics:**
-- **Subscriber:** `/goal_pose` (geometry_msgs/PoseStamped) - Target goal
-- **Publisher:** `/path` (nav_msgs/Path) - Planned trajectory
-
-### 🎮 teleop_node
-**Teleoperation control**
-
-Interface for manual drone control via keyboard/joystick.
-
-**Topics:**
-- **Subscriber:** `/cmd_vel` (geometry_msgs/Twist) - Velocity commands
-- **Publisher:** `/goal_pose` (geometry_msgs/PoseStamped) - Target pose
-
-### 🛡️ babyk_drone_manager
-**State management and safety**
-
-Monitors drone status and implements safety functions.
-
-**Topics:**
-- **Subscriber:** `/fcu/out/vehicle_status` (px4_msgs/VehicleStatus)
-- **Publisher:** `/safety_status` (std_msgs/Bool) - Safety status
-
 ## System Requirements
 
 - **Docker**: For isolated development environment
@@ -152,6 +93,66 @@ source install/setup.bash
 cd ros2_ws
 tmuxp load src/babyk_drone_manager/simulation.yml
 ```
+
+## ROS2 Packages
+
+### 🛸 traj_interp
+**Trajectory interpolator with complete PX4 integration**
+
+Implements the ffilter algorithm for smooth trajectory interpolation with integrated PX4 offboard control.
+
+**Key Features:**
+- Smooth trajectory interpolation with jerk/acceleration limiting
+- Complete PX4 integration: arming/disarming, offboard mode
+- Automatic heading calculation based on movement direction
+- Smart arming: only on first path or after landing
+- Auto-disarming on land detection
+- Automatic PX4 mode management
+
+**Topics:**
+- **Subscriber:** `/path` (nav_msgs/Path) - Trajectory to follow
+- **Publisher:** `/px4_trajectory` (trajectory_msgs/MultiDOFJointTrajectory) - Interpolated trajectory
+- **Publisher:** `/fcu/in/vehicle_command` - PX4 commands (arm/disarm)
+- **Publisher:** `/fcu/in/offboard_control_mode` - Offboard control mode
+- **Subscriber:** `/fcu/out/vehicle_control_mode` - Vehicle mode status
+- **Subscriber:** `/fcu/out/vehicle_land_detected` - Landing status
+
+### 📡 drone_odometry2
+**Vehicle odometry publisher**
+
+Converts PX4 status messages to standard ROS2 odometry.
+
+**Topics:**
+- **Subscriber:** `/fcu/out/vehicle_odometry` (px4_msgs/VehicleOdometry)
+- **Publisher:** `/odom` (nav_msgs/Odometry)
+
+### 🗺️ path_planner  
+**3D trajectory planner**
+
+Generates optimized 3D paths for drones with obstacle avoidance.
+
+**Topics:**
+- **Subscriber:** `/goal_pose` (geometry_msgs/PoseStamped) - Target goal
+- **Publisher:** `/path` (nav_msgs/Path) - Planned trajectory
+
+### 🎮 teleop_node
+**Teleoperation control**
+
+Interface for manual drone control via keyboard/joystick.
+
+**Topics:**
+- **Subscriber:** `/cmd_vel` (geometry_msgs/Twist) - Velocity commands
+- **Publisher:** `/goal_pose` (geometry_msgs/PoseStamped) - Target pose
+
+### 🛡️ babyk_drone_manager
+**State management and safety**
+
+Monitors drone status and implements safety functions.
+
+**Topics:**
+- **Subscriber:** `/fcu/out/vehicle_status` (px4_msgs/VehicleStatus)
+- **Publisher:** `/safety_status` (std_msgs/Bool) - Safety status
+
 
 ## Trajectory Interpolation Algorithm
 
