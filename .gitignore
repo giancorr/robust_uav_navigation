@@ -3,6 +3,8 @@ PX4-Autopilot/
 PX4_neabotics/
 **/build/px4_sitl_default/
 **/rootfs/
+sitl_ws-src/
+run_sitl_cnt.sh
 
 # Core dumps and debug files
 core
