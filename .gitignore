@@ -8,6 +8,11 @@ run_sitl_cnt.sh
 utils_ws-src/
 run_utils_cnt.sh
 
+# Exclude specific packages from ros2_ws-src/pkg/
+ros2_ws-src/pkg/drone_planner2/
+ros2_ws-src/pkg/ldc_utils/
+ros2_ws-src/pkg/rosbag_recorded/
+
 # Core dumps and debug files
 core
 core.*
