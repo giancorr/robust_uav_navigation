@@ -113,3 +113,9 @@ RUN sudo apt remove gz-garden -y \
    
 RUN  apt update && apt-get install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
+# Install ARM toolchain for PX4 hardware compilation
+RUN wget https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 \
+    && tar -xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -C /opt \
+    && rm gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+
+ENV PATH="/opt/gcc-arm-none-eabi-10.3-2021.10/bin:${PATH}"

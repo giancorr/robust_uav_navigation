@@ -5,6 +5,8 @@ PX4_neabotics/
 **/rootfs/
 sitl_ws-src/
 run_sitl_cnt.sh
+utils_ws-src/
+run_utils_cnt.sh
 
 # Core dumps and debug files
 core

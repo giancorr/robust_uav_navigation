@@ -122,3 +122,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
     
 RUN apt-get update && apt-get install ros-humble-sophus*
+
+# Install ARM toolchain for PX4 hardware compilation
+RUN wget https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 \
+    && tar -xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -C /opt \
+    && rm gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+
+ENV PATH="/opt/gcc-arm-none-eabi-10.3-2021.10/bin:${PATH}"
