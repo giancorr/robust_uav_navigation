@@ -9,7 +9,8 @@ The system consists of several modular ROS2 packages, each with a specific respo
 ```
 sitl_utils/
 ├── ros2_ws-src/           # ROS2 workspace with modular packages
-│   ├── drone_odometry2/   # Vehicle odometry publisher (submodule)
+│   ├── aruco_detector_ocv_ros2/   # opencv-based aruco detector (submodule)│   
+├── drone_odometry2/   # Vehicle odometry publisher (submodule)
 │   ├── path_planner/      # 3D trajectory planning (submodule)
 │   ├── teleop_node/       # Teleoperation control (submodule)
 │   ├── babyk_drone_manager/ # Drone state management and safety (submodule)
