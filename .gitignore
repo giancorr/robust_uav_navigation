@@ -1,10 +1,14 @@
 # PX4 related directories - exclude completely
 PX4-Autopilot/
 PX4_neabotics/
+PX4_Neabotics_v1.16/
 **/build/px4_sitl_default/
 **/rootfs/
 sitl_ws-src/
+px4_ws-src/
 run_sitl_cnt.sh
+run_px4_cnt.sh
+run_px4_cnt_backup.sh
 utils_ws-src/
 run_utils_cnt.sh
 
@@ -46,6 +50,7 @@ Thumbs.db
 
 # Docker build cache
 docker/.docker_cache/
+docker/px4_humble_harmonic_dockerfile.txt
 
 # Python cache
 __pycache__/
