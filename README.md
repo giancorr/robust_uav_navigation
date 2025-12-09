@@ -19,7 +19,7 @@ sitl_utils/
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
 ├── PX4-Autopilot/        # PX4 firmware 
-└── PX4_neabotics_/       # PX4 custom firmware 
+└── PX4_neabotics/        # PX4 custom firmware 
 ```
 
 ## System Requirements
