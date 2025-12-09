@@ -8,18 +8,18 @@ The system consists of several modular ROS2 packages, each with a specific respo
 
 ```
 sitl_utils/
-├── ros2_ws-src/           # ROS2 workspace with modular packages
-│   ├── aruco_detector_ocv_ros2/   # opencv-based aruco detector (submodule)
-│   ├── drone_odometry2/   # Vehicle odometry publisher (submodule)
-│   ├── path_planner/      # 3D trajectory planning (submodule)
-│   ├── teleop_node/       # Teleoperation control (submodule)
-│   ├── babyk_drone_manager/ # Drone state management and safety (submodule)
-│   └── traj_interp/       # Trajectory interpolation with PX4 (submodule)
+├── ros2_ws-src/                    # ROS2 workspace with modular packages
+│   ├── aruco_detector_ocv_ros2/    # opencv-based aruco detector (submodule)
+│   ├── drone_odometry2/            # Vehicle odometry publisher (submodule)
+│   ├── path_planner/               # 3D trajectory planning (submodule)
+│   ├── teleop_node/                # Teleoperation control (submodule)
+│   ├── babyk_drone_manager/        # Drone state management and safety (submodule)
+│   └── traj_interp/                # Trajectory interpolation with PX4 (submodule)
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
 ├── PX4-Autopilot/        # PX4 firmware 
-└── PX4_neabotics_/        # PX4 custom firmware 
+└── PX4_neabotics_/       # PX4 custom firmware 
 ```
 
 ## System Requirements
