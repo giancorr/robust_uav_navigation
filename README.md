@@ -1,6 +1,6 @@
-# SITL Utilities - PX4 Simulation Environment with ROS2
+# UAV MOTION STACK
 
-This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation integrated with ROS2 Humble in a Docker environment.
+This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation and hardware-specific deployment.
 
 ## Architecture Overview
 
@@ -36,7 +36,7 @@ A step by step series of examples that tell you how to get a development environ
 
 ### 1. Repository Clone
 ```bash
-git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git -b pdt25
+git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git -b paper
 cd sitl_utils
 ```
 
@@ -47,7 +47,7 @@ git clone --single-branch -b release/1.14 git@github.com:PX4/PX4-Autopilot.git -
 
 ### 3. Clone PX4 Neabotics
 ```bash
-git clone --single-branch -b feature/diffgains_fix_servo_k https://github.com/Neabotics/PX4_neabotics.git --recursive
+git clone --single-branch -b feature/diffgains_fix_servo_k https://github.com/Prisma-Drone-Team/Px4_hcore_autopilot.git PX4_neabotics --recursive
 ```
 
 ### 4. Build Docker Image
@@ -171,3 +171,4 @@ Monitors drone status and implements safety functions.
 **Topics:**
 - **Subscriber:** `/fcu/out/vehicle_status` (px4_msgs/VehicleStatus)
 - **Publisher:** `/safety_status` (std_msgs/Bool) - Safety status
+

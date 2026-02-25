@@ -1,8 +1,3 @@
-[submodule "ros2_ws-src/pkg/drone_odometry2"]
-	path = ros2_ws-src/pkg/drone_odometry2
-	url = https://github.com/Prisma-Drone-Team/drone_odometry2
-	branch = master
-
 [submodule "ros2_ws-src/pkg/path_planner"]
 	path = ros2_ws-src/pkg/path_planner
 	url = https://github.com/Prisma-Drone-Team/path_planner.git
@@ -27,3 +22,7 @@
 	path = ros2_ws-src/pkg/aruco_detector_ocv_ros2
 	url = https://github.com/Prisma-Drone-Team/aruco_detector_ocv_ros2
 	branch = sitl_utils
+[submodule "ros2_ws-src/pkg/drone_odometry"]
+	path = ros2_ws-src/pkg/drone_odometry
+	url = https://github.com/Prisma-Drone-Team/drone_odometry.git
+	branch = master

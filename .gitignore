@@ -11,6 +11,7 @@ run_px4_cnt.sh
 run_px4_cnt_backup.sh
 utils_ws-src/
 run_utils_cnt.sh
+docker/build_with_updates.sh
 
 # Exclude specific packages from ros2_ws-src/pkg/
 ros2_ws-src/pkg/drone_planner2/
