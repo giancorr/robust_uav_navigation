@@ -7,7 +7,7 @@ This repository contains tools and configurations for PX4 SITL (Software In The 
 The system consists of several modular ROS2 packages, each with a specific responsibility:
 
 ```
-sitl_utils/
+uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace with modular packages
 │   ├── aruco_detector_ocv_ros2/    # opencv-based aruco detector (submodule)
 │   ├── drone_odometry2/            # Vehicle odometry publisher (submodule)
@@ -36,8 +36,8 @@ A step by step series of examples that tell you how to get a development environ
 
 ### 1. Repository Clone
 ```bash
-git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git -b paper_stable
-cd sitl_utils
+git clone --recursive https://github.com/Prisma-Drone-Team/uav_motion_stack.git -b paper_stable
+cd uav_motion_stack
 ```
 
 ### 2. Clone PX4 Firmware
@@ -92,7 +92,7 @@ source install/setup.bash
 ## Usage in simulation with TMUX
 ```bash
 cd ros2_ws
-tmuxp load src/pkg/babyk_drone_manager/simulation.yml
+tmuxp load src/pkg/babyk_drone_manager/utils/simulation.yml
 ```
 
 ## Package Documentation
