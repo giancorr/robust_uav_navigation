@@ -36,7 +36,7 @@ A step by step series of examples that tell you how to get a development environ
 
 ### 1. Repository Clone
 ```bash
-git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git -b paper
+git clone --recursive https://github.com/Prisma-Drone-Team/sitl_utils.git -b paper_stable
 cd sitl_utils
 ```
 
