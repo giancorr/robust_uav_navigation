@@ -1,0 +1,29 @@
+%YAML:1.0
+
+cam0:
+  T_imu_cam:
+    - [ 0.0,  0.0,  1.0,  0.21233]
+    - [-1.0,  0.0,  0.0, -0.03000]
+    - [ 0.0, -1.0,  0.0, -0.01122]
+    - [ 0.0,  0.0,  0.0,  1.00000]
+  cam_overlaps: []
+  camera_model: pinhole
+  distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+  distortion_model: radtan
+  intrinsics: [465.617, 465.617, 320.0, 240.0]
+  resolution: [640, 480]
+  rostopic: /camera
+
+cam1:
+    T_imu_cam:
+      - [ 0.00000,  0.25882, -0.96593, -0.40000]
+      - [ 1.00000,  0.00000,  0.00000,  0.00000]
+      - [ 0.00000, -0.96593, -0.25882, -0.01500]
+      - [ 0.00000,  0.00000,  0.00000,  1.00000]
+    cam_overlaps: []
+    camera_model: pinhole
+    distortion_coeffs: [0.0, 0.0, 0.0, 0.0]
+    distortion_model: radtan
+    intrinsics: [465.617, 465.617, 320.0, 240.0]
+    resolution: [640, 480]
+    rostopic: /camera_rear

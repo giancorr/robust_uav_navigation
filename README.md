@@ -10,8 +10,8 @@ The system consists of three main ROS2 packages:
 uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace
 │   ├── babyk_drone_manager/        # Drone state management, TF and safety (submodule)
-│   ├── open_vins/                  # Visual-Inertial Odometry estimator
-│   └── vio_recovery/               # Core recovery logic, tactile odometry, and FSM
+│   ├── open_vins/                  # Visual-Inertial Odometry estimator (submodule)
+│   └── vio_recovery/               # Core recovery logic, tactile odometry, FSM, and configs
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
@@ -124,9 +124,9 @@ Implements advanced fallback mechanisms when VIO (OpenVINS) becomes unstable or 
 - **Surface & Aruco Detectors**: Vision nodes to assist with relocalization and target finding.
 
 ### 👓 open_vins
-**Visual Inertial Odometry Estimation**
+**Visual Inertial Odometry Estimation (Submodule)**
 
-A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter). In this stack, it is specifically configured to output degeneracy metrics (eigenvalues) that are consumed by the `vio_recovery` package.
+A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter). This is imported as a clean Git submodule from the official RPNG repository. In this stack, it is specifically configured to output degeneracy metrics (eigenvalues) that are consumed by the `vio_recovery` package. All drone-specific OpenVINS configurations (like `baby_k`) are maintained externally inside `vio_recovery/config` to keep the source library pristine.
 
 ### 🛡️ babyk_drone_manager
 **State management and safety**
