@@ -1,7 +1,3 @@
-[submodule "ros2_ws-src/pkg/babyk_drone_manager"]
-	path = ros2_ws-src/pkg/babyk_drone_manager
-	url = https://github.com/Prisma-Drone-Team/drone_manager_ldc.git
-	branch = main
 
 [submodule "ros2_ws-src/pkg/open_vins"]
 	path = ros2_ws-src/pkg/open_vins

@@ -1,0 +1,10 @@
+autonomous_test_node:
+  ros__parameters:
+    # Timing parameters (in seconds)
+    command_interval_min: 120    # Minimum time between commands (2 minutes)
+    command_interval_max: 180    # Maximum time between commands (3 minutes)
+    max_wait_time: 60           # Max time to wait if system is not idle (1 minute)
+    
+    # Command probabilities
+    land_probability: 0.10      # 10% chance of sending land command (vs flyto goal)
+    max_consecutive_failures: 3 # Emergency land after this many consecutive failures

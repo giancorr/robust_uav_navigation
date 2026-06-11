@@ -1,0 +1,59 @@
+session_name: path_planner_flight
+socket_name: drone_pathplanner_real
+windows:
+  - window_name: navigation_stack
+    layout: tiled
+    panes:
+    - shell_command:
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch babyk_drone_manager move_manager.launch.py config_file:=config/move_manager_params.yaml
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch path_planner path_planner.launch.py config_file:=config/path_planner_flight.yaml
+    - shell_command:
+        - sleep 5
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch traj_interp trajectory_interpolator.launch.py config_file:=config/trajectory_interpolator_flight.yaml
+    - shell_command:
+        - sleep 8
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch drone_odometry slam_leonardo.launch.py
+  - window_name: utils
+    layout: tiled
+    panes:
+    - shell_command:
+        - sleep 10
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 run joy joy_node
+    - shell_command:
+        - sleep 30
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch teleop_node enhanced_teleop.launch.py
+    - shell_command:
+        - sleep 10
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch babyk_drone_manager tf_static_flight.launch.py use_sim_time:=false
+    - shell_command:
+        - sleep 12
+        - cd ~/ros2_ws && source install/setup.bash
+        - ros2 launch babyk_drone_manager autonomous_test_node.launch.py simulation:=false config_file:=config/autonomous_test_node_flight.yaml
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'takeoff'}" --once          # to takeoff
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'go(10.0,5.0,3.0)'}" --once # direct movement without path planning
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'flyto(goal1)'}" --once     # path planning with RRT and FCL (goal1 is a frame name)
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'land'}" --once             # to land
+        #- ros2 topic pub /seed_pdt_drone/command std_msgs/msg/String "{data: 'stop'}" --once             # to stop trajectory
+    # - shell_command:
+    #     - sleep 15
+    #     - cd ~/ros2_ws && source install/setup.bash
+    #     - ros2 run rviz2 rviz2 -d src/pkg/babyk_drone_manager/rviz/leo.rviz
+    
+
+    ############# tmux installation in dockerfile #############
+    # RUN apt update && apt install -y --no-install-recommends \    
+    #     aptitude \
+    #     tmux \
+    #     tmuxp 
+
+    # COPY tmux.conf .tmux.conf
+        

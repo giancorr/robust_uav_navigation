@@ -1,0 +1,3 @@
+# Ignore utility files in utils directory
+utils/gcs_help.txt
+utils/mpc_core.yml
