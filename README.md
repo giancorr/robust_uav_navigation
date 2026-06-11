@@ -1,4 +1,4 @@
-# UAV VIO RECOVERY STACK
+# ROBUST UAV NAVIGATION
 
 This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation, with a specific focus on robust recovery from Visual-Inertial Odometry (VIO) failures using tactile odometry and state machine logic.
 
@@ -33,8 +33,8 @@ A step by step series of examples that tell you how to get a development environ
 
 ### 1. Repository Clone
 ```bash
-git clone --recursive https://github.com/giancorr/Front-rear-configuration.git -b simulation
-cd Front-rear-configuration
+git clone --recursive https://github.com/giancorr/robust_uav_navigation.git -b simulation
+cd robust_uav_navigation
 ```
 
 ### 2. Clone PX4 Firmware
@@ -69,8 +69,21 @@ git submodule update --init --recursive
 ```bash
 cd ros2_ws
 source install/setup.bash
-colcon build --packages-select babyk_drone_manager open_vins vio_recovery --cmake-args -DCMAKE_BUILD_TYPE=Release
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
+```
+
+### Main Dependencies
+```xml
+<!-- Common package.xml -->
+<depend>rclcpp</depend>
+<depend>px4_msgs</depend>
+<depend>nav_msgs</depend>
+<depend>geometry_msgs</depend>
+<depend>trajectory_msgs</depend>
+<depend>tf2</depend>
+<depend>tf2_ros</depend>
+<depend>eigen3_cmake_module</depend>
 ```
 
 ## Usage in simulation with TMUX
@@ -87,6 +100,12 @@ Each ROS2 package used in this system provides specific functionality for the VI
 - **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
 - **vio_recovery**: The core novel package containing the recovery Finite State Machine, tactile odometry, and hardware fallback logic.
 
+## Important Notes
+
+**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
+
+**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
+
 ---
 
 ## ROS2 Packages
@@ -94,7 +113,7 @@ Each ROS2 package used in this system provides specific functionality for the VI
 ### 🚑 vio_recovery
 **VIO Failure Recovery & Tactile Odometry System**
 
-Implements advanced fallback mechanisms when the primary VIO (OpenVINS) becomes unstable or degenerates due to lack of visual features (e.g., when facing a blank wall during a spraying mission).
+Implements advanced fallback mechanisms when VIO (OpenVINS) becomes unstable or degenerates due to lack of visual features.
 
 **Key Features:**
 - **VIO Recovery FSM (`vio_recovery_fsm`)**: Finite State Machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
