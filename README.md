@@ -9,7 +9,7 @@ The system consists of three main ROS2 packages:
 ```
 uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace
-│   ├── babyk_drone_manager/        # Drone state management, TF and safety (submodule)
+│   ├── babyk_drone_manager/        # Drone state management, TF and safety
 │   ├── open_vins/                  # Visual-Inertial Odometry estimator (submodule)
 │   └── vio_recovery/               # Core recovery logic, tactile odometry, FSM, and configs
 ├── docker/               # Docker configurations
