@@ -1,20 +1,17 @@
-# UAV MOTION STACK
+# UAV VIO RECOVERY STACK
 
-This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation and hardware-specific deployment.
+This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation, with a specific focus on robust recovery from Visual-Inertial Odometry (VIO) failures using tactile odometry and state machine logic.
 
 ## Architecture Overview
 
-The system consists of several modular ROS2 packages, each with a specific responsibility:
+The system consists of three main ROS2 packages:
 
 ```
 uav_motion_stack/
-├── ros2_ws-src/                    # ROS2 workspace with modular packages
-│   ├── aruco_detector_ocv_ros2/    # opencv-based aruco detector (submodule)
-│   ├── drone_odometry2/            # Vehicle odometry publisher (submodule)
-│   ├── path_planner/               # 3D trajectory planning (submodule)
-│   ├── teleop_node/                # Teleoperation control (submodule)
-│   ├── babyk_drone_manager/        # Drone state management and safety (submodule)
-│   └── traj_interp/                # Trajectory interpolation with PX4 (submodule)
+├── ros2_ws-src/                    # ROS2 workspace
+│   ├── babyk_drone_manager/        # Drone state management, TF and safety (submodule)
+│   ├── open_vins/                  # Visual-Inertial Odometry estimator
+│   └── vio_recovery/               # Core recovery logic, tactile odometry, and FSM
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
@@ -36,8 +33,8 @@ A step by step series of examples that tell you how to get a development environ
 
 ### 1. Repository Clone
 ```bash
-git clone --recursive https://github.com/Prisma-Drone-Team/uav_motion_stack.git -b paper_stable
-cd uav_motion_stack
+git clone --recursive https://github.com/giancorr/Front-rear-configuration.git -b simulation
+cd Front-rear-configuration
 ```
 
 ### 2. Clone PX4 Firmware
@@ -61,7 +58,7 @@ docker build -t leo-img -f px4_humble_dockerfile.txt .
 ./run_cnt.sh
 ```
 
-### 6. Initialize Submodules (if needed)
+### 6. Initialize Submodules
 ```bash
 git submodule update --init --recursive
 ```
@@ -72,21 +69,8 @@ git submodule update --init --recursive
 ```bash
 cd ros2_ws
 source install/setup.bash
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+colcon build --packages-select babyk_drone_manager open_vins vio_recovery --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
-```
-
-### Main Dependencies
-```xml
-<!-- Common package.xml -->
-<depend>rclcpp</depend>
-<depend>px4_msgs</depend>
-<depend>nav_msgs</depend>
-<depend>geometry_msgs</depend>
-<depend>trajectory_msgs</depend>
-<depend>tf2</depend>
-<depend>tf2_ros</depend>
-<depend>eigen3_cmake_module</depend>
 ```
 
 ## Usage in simulation with TMUX
@@ -97,78 +81,35 @@ tmuxp load src/pkg/babyk_drone_manager/utils/fr_simulation.yml
 
 ## Package Documentation
 
-Each ROS2 package used in this system is documented in its own specific README:
+Each ROS2 package used in this system provides specific functionality for the VIO recovery pipeline:
 
-- **traj_interp**: Detailed documentation of the interpolation algorithm and PX4 integration
-- **drone_odometry2**: Odometry message conversion specifications
-- **path_planner**: 3D planning and obstacle avoidance algorithms
-- **teleop_node**: Manual control configuration and interfaces
-- **babyk_drone_manager**: Safety system and state monitoring
+- **babyk_drone_manager**: Handles TF broadcasting, basic movement management, and general safety bounds.
+- **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
+- **vio_recovery**: The core novel package containing the recovery Finite State Machine, tactile odometry, and hardware fallback logic.
 
-Refer to the README.md file in each package folder for technical details.
-
-## Important Notes
-
-**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
-
-**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
+---
 
 ## ROS2 Packages
 
-### 🛸 traj_interp
-**Trajectory interpolator with complete PX4 integration**
+### 🚑 vio_recovery
+**VIO Failure Recovery & Tactile Odometry System**
 
-Implements the ffilter algorithm for smooth trajectory interpolation with integrated PX4 offboard control.
+Implements advanced fallback mechanisms when the primary VIO (OpenVINS) becomes unstable or degenerates due to lack of visual features (e.g., when facing a blank wall during a spraying mission).
 
 **Key Features:**
-- Smooth trajectory interpolation with jerk/acceleration limiting
-- Complete PX4 integration: arming/disarming, offboard mode
-- Automatic heading calculation based on movement direction
-- Smart arming: only on first path or after landing
-- Auto-disarming on land detection
-- Automatic PX4 mode management
+- **VIO Recovery FSM (`vio_recovery_fsm`)**: Finite State Machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
+- **Tactile Odometry**: Provides fallback geometric odometry based on physical contact constraints (unilateral projection) when visual tracking is lost.
+- **External Wrench Estimator**: Calculates external forces and torques based on drone dynamics, used to detect wall contact.
+- **Degeneracy Monitor**: Monitors OpenVINS eigenvalues to preemptively detect tracking degradation.
+- **Spray Target Heuristic**: Dynamically selects targets for the spray mission based on visual feature count balance.
+- **Surface & Aruco Detectors**: Vision nodes to assist with relocalization and target finding.
 
-**Topics:**
-- **Subscriber:** `/path` (nav_msgs/Path) - Trajectory to follow
-- **Publisher:** `/px4_trajectory` (trajectory_msgs/MultiDOFJointTrajectory) - Interpolated trajectory
-- **Publisher:** `/fcu/in/vehicle_command` - PX4 commands (arm/disarm)
-- **Publisher:** `/fcu/in/offboard_control_mode` - Offboard control mode
-- **Subscriber:** `/fcu/out/vehicle_control_mode` - Vehicle mode status
-- **Subscriber:** `/fcu/out/vehicle_land_detected` - Landing status
+### 👓 open_vins
+**Visual Inertial Odometry Estimation**
 
-### 📡 drone_odometry2
-**Vehicle odometry publisher**
-
-Converts PX4 status messages to standard ROS2 odometry.
-
-**Topics:**
-- **Subscriber:** `/fcu/out/vehicle_odometry` (px4_msgs/VehicleOdometry)
-- **Publisher:** `/odom` (nav_msgs/Odometry)
-
-### 🗺️ path_planner  
-**3D trajectory planner**
-
-Generates optimized 3D paths for drones with obstacle avoidance.
-
-**Topics:**
-- **Subscriber:** `/goal_pose` (geometry_msgs/PoseStamped) - Target goal
-- **Publisher:** `/path` (nav_msgs/Path) - Planned trajectory
-
-### 🎮 teleop_node
-**Teleoperation control**
-
-Interface for manual drone control via keyboard/joystick.
-
-**Topics:**
-- **Subscriber:** `/cmd_vel` (geometry_msgs/Twist) - Velocity commands
-- **Publisher:** `/goal_pose` (geometry_msgs/PoseStamped) - Target pose
+A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter). In this stack, it is specifically configured to output degeneracy metrics (eigenvalues) that are consumed by the `vio_recovery` package.
 
 ### 🛡️ babyk_drone_manager
 **State management and safety**
 
-Monitors drone status and implements safety functions.
-
-**Topics:**
-- **Subscriber:** `/fcu/out/vehicle_status` (px4_msgs/VehicleStatus)
-- **Publisher:** `/safety_status` (std_msgs/Bool) - Safety status
-
+Monitors overall drone status and implements safety functions. Also contains the core TMUX simulation files (`fr_simulation.yml`) and TF publishers required to link the simulated Gazebo drone with the ROS2 TF tree and PX4 offboard control.
