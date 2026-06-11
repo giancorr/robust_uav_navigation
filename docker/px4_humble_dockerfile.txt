@@ -129,3 +129,6 @@ RUN wget https://armkeil.blob.core.windows.net/developer/Files/downloads/gnu-rm/
     && rm gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
 
 ENV PATH="/opt/gcc-arm-none-eabi-10.3-2021.10/bin:${PATH}"
+RUN sudo apt-get install -y cmake libgoogle-glog-dev libgflags-dev libatlas-base-dev libeigen3-dev libsuitesparse-dev libceres-dev
+RUN apt-get update && apt-get install -y python3-dev python3-matplotlib python3-numpy python3-psutil python3-tk
+RUN apt-get update && apt-get install -y ros-humble-topic-tools

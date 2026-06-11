@@ -1,0 +1,12 @@
+# Cartelle generate dalla build di ROS (colcon / catkin)
+build/
+install/
+log/
+
+# (Opzionale) Ignora file di configurazione degli editor e file temporanei di sistema
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store

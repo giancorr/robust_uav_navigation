@@ -1,0 +1,49 @@
+rosbag2_bagfile_information:
+  compression_format: ''
+  compression_mode: ''
+  duration:
+    nanoseconds: 147166583149
+  message_count: 107819
+  relative_file_paths:
+  - V1_01_easy.db3
+  starting_time:
+    nanoseconds_since_epoch: 1403715271716819613
+  storage_identifier: sqlite3
+  topics_with_message_count:
+  - message_count: 29123
+    topic_metadata:
+      name: /fcu/imu
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: sensor_msgs/msg/Imu
+  - message_count: 29123
+    topic_metadata:
+      name: /fcu/motor_speed
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: asctec_hl_comm/msg/MotorSpeed
+  - message_count: 29120
+    topic_metadata:
+      name: /imu0
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: sensor_msgs/msg/Imu
+  - message_count: 2912
+    topic_metadata:
+      name: /cam1/image_raw
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: sensor_msgs/msg/Image
+  - message_count: 2912
+    topic_metadata:
+      name: /cam0/image_raw
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: sensor_msgs/msg/Image
+  - message_count: 14629
+    topic_metadata:
+      name: /vicon/firefly_sbx/firefly_sbx
+      offered_qos_profiles: ''
+      serialization_format: cdr
+      type: geometry_msgs/msg/TransformStamped
+  version: 4
