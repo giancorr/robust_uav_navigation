@@ -1,0 +1,59 @@
+degeneracy_monitor_node:
+  ros__parameters:
+    kx1: 350.0
+    kx2: 750.0
+    ky1: 350.0
+    ky2: 750.0
+    kz1: 300.0
+    kz2: 400.0
+    delta_t: 0.05
+    stagnation_epsilon: 1e-4
+    max_stagnation_counts: 5
+
+aruco_spawner_node:
+  ros__parameters:
+    impact_wall_distance: 0.3
+
+surface_detector_node:
+  ros__parameters:
+    min_valid_dist: 0.2
+    max_valid_dist: 6.0
+
+
+vio_recovery_fsm_node:
+  ros__parameters:
+    target_x: 0.0
+    target_y: 28.0
+    target_z: 1.5
+    target_yaw: 1.57
+    enable_spray: true
+    cruise_speed: 0.5
+    impact_threshold: 2.1
+    swipe_length: 1.0
+
+spray_heuristic_node:
+  ros__parameters:
+    max_reachable_dist: 5.0
+    min_features_critical: 30
+    max_marker_interval: 5.0
+
+wrench_estimator_node:
+  ros__parameters:
+    mass: 2.23
+    inertia_xx: 0.0420
+    inertia_yy: 0.0280
+    inertia_zz: 0.0600
+    k_i_f: 10.0
+    k_i_m: 20.0
+    max_thrust_n: 43.8
+
+tactile_odometry_node:
+  ros__parameters:
+    mass: 2.23
+    inertia_xx: 0.0420
+    inertia_yy: 0.0280
+    inertia_zz: 0.0600
+    impact_force_threshold: 2.0
+    impact_torque_threshold: 0.5
+    enable_tactile_odometry: true
+    max_thrust_n: 43.8

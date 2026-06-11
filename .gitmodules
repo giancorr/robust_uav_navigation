@@ -1,28 +1,5 @@
-[submodule "ros2_ws-src/pkg/path_planner"]
-	path = ros2_ws-src/pkg/path_planner
-	url = https://github.com/Prisma-Drone-Team/path_planner.git
-	branch = main
-
-[submodule "ros2_ws-src/pkg/teleop_node"]
-	path = ros2_ws-src/pkg/teleop_node
-	url = https://github.com/Prisma-Drone-Team/teleop_node.git
-	branch = main
-
 [submodule "ros2_ws-src/pkg/babyk_drone_manager"]
 	path = ros2_ws-src/pkg/babyk_drone_manager
 	url = https://github.com/Prisma-Drone-Team/drone_manager_ldc.git
 	branch = main
 
-[submodule "ros2_ws-src/pkg/traj_interp"]
-	path = ros2_ws-src/pkg/traj_interp
-	url = https://github.com/Prisma-Drone-Team/traj_interp.git
-	branch = main
-
-[submodule "ros2_ws-src/pkg/aruco_detector_ocv_ros2"]
-	path = ros2_ws-src/pkg/aruco_detector_ocv_ros2
-	url = https://github.com/Prisma-Drone-Team/aruco_detector_ocv_ros2
-	branch = sitl_utils
-[submodule "ros2_ws-src/pkg/drone_odometry"]
-	path = ros2_ws-src/pkg/drone_odometry
-	url = https://github.com/Prisma-Drone-Team/drone_odometry.git
-	branch = master
