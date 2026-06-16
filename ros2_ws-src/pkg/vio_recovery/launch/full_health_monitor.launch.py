@@ -53,8 +53,8 @@ def generate_launch_description():
         # Lateral spawner
         Node(
             package='vio_recovery',
-            executable='aruco_spawner',
-            name='aruco_spawner_node',
+            executable='swipe_spawner',
+            name='swipe_spawner',
             output='screen',
             parameters=[config_file]
         ),
@@ -62,8 +62,8 @@ def generate_launch_description():
         # Down spawner
         Node(
             package='vio_recovery',
-            executable='aruco_spawner_down_node',
-            name='aruco_spawner_down_node',
+            executable='drop_spawner',
+            name='drop_spawner',
             output='screen',
             parameters=[config_file]
         ),

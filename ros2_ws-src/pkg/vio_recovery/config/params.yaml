@@ -10,7 +10,7 @@ degeneracy_monitor_node:
     stagnation_epsilon: 1e-4
     max_stagnation_counts: 5
 
-aruco_spawner_node:
+swipe_spawner:
   ros__parameters:
     impact_wall_distance: 0.3
 

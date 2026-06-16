@@ -9,9 +9,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-class ArucoSpawnerDownNode : public rclcpp::Node {
+class DropSpawnerNode : public rclcpp::Node {
 public:
-    ArucoSpawnerDownNode() : Node("aruco_spawner_down_node"), is_spawned_(false),
+    DropSpawnerNode() : Node("drop_spawner"), is_spawned_(false),
                          current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0) {
 
         rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
@@ -97,7 +97,7 @@ private:
         std::string template_path = "/root/ros2_ws/src/pkg/vio_recovery/models/splatter_stain/model.sdf";
         std::ifstream template_file(template_path);
         if (!template_file.is_open()) {
-            RCLCPP_ERROR(this->get_logger(), "ERRORE: Impossibile trovare il modello SDF in %s", template_path.c_str());
+            RCLCPP_ERROR(this->get_logger(), "ERROR: Cannot find SDF model at %s", template_path.c_str());
             return;
         }
         
@@ -139,7 +139,7 @@ private:
 
         system(cmd.c_str());
         
-        RCLCPP_INFO(this->get_logger(), "Spawnata macchia %s alle coordinate X:%.2f, Y:%.2f", model_name, spawn_x, spawn_y);
+        RCLCPP_INFO(this->get_logger(), "Spawned stain %s at coordinates X:%.2f, Y:%.2f", model_name, spawn_x, spawn_y);
     }
 
     double current_x_, current_y_, current_z_, current_yaw_;
@@ -152,7 +152,7 @@ private:
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ArucoSpawnerDownNode>());
+    rclcpp::spin(std::make_shared<DropSpawnerNode>());
     rclcpp::shutdown();
     return 0;
 }

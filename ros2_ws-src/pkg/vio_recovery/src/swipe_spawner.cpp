@@ -9,9 +9,9 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
-class ArucoSpawnerNode : public rclcpp::Node {
+class SwipeSpawnerNode : public rclcpp::Node {
 public:
-    ArucoSpawnerNode() : Node("aruco_spawner_node"), is_spawned_(false), current_side_("NONE"),
+    SwipeSpawnerNode() : Node("swipe_spawner"), is_spawned_(false), current_side_("NONE"),
                          current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0) {
 
         this->declare_parameter<double>("impact_wall_distance", 0.35);
@@ -68,7 +68,7 @@ private:
         
         double spawn_x = wall_point_x + (swipe_length / 2.0) * std::cos(current_yaw_);
         double spawn_y = wall_point_y + (swipe_length / 2.0) * std::sin(current_yaw_);
-        double spawn_z = current_z_ - 0.1; // Abbassato di 10 cm rispetto al drone
+        double spawn_z = current_z_ - 0.1; // Lowered by 10 cm compared to the drone
 
         double marker_yaw = current_yaw_;
         if (current_side_ == "LEFT") {
@@ -133,7 +133,7 @@ private:
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<ArucoSpawnerNode>());
+    rclcpp::spin(std::make_shared<SwipeSpawnerNode>());
     rclcpp::shutdown();
     return 0;
 }

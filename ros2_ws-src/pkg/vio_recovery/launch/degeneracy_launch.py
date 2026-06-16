@@ -54,8 +54,8 @@ def generate_launch_description():
         
         Node(
             package='vio_recovery',
-            executable='aruco_spawner',
-            name='aruco_spawner_node',
+            executable='swipe_spawner',
+            name='swipe_spawner',
             output='screen',
             parameters=[config_file]
         ),
