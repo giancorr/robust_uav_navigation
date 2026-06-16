@@ -116,12 +116,12 @@ Each ROS2 package used in this system provides specific functionality for the VI
 Implements advanced fallback mechanisms when VIO (OpenVINS) becomes unstable or degenerates due to lack of visual features.
 
 **Key Features:**
-- **VIO Recovery FSM (`vio_recovery_fsm`)**: Finite State Machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
+- **VIO Recovery FSM**: Finite State Machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
 - **Tactile Odometry**: Provides fallback geometric odometry based on physical contact constraints (unilateral projection) when visual tracking is lost.
 - **External Wrench Estimator**: Calculates external forces and torques based on drone dynamics, used to detect wall contact.
 - **Degeneracy Monitor**: Monitors OpenVINS eigenvalues to preemptively detect tracking degradation.
 - **Spray Target Heuristic**: Dynamically selects targets for the spray mission based on visual feature count balance.
-- **Surface & Aruco Detectors**: Vision nodes to assist with relocalization and target finding.
+- **Surface Detector**: Vision nodes to assist with relocalization and target finding.
 
 ### 👓 open_vins
 **Visual Inertial Odometry Estimation (Personal Fork)**
