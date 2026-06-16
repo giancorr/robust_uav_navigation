@@ -1,4 +1,4 @@
 
 [submodule "ros2_ws-src/pkg/open_vins"]
 	path = ros2_ws-src/pkg/open_vins
-	url = https://github.com/rpng/open_vins
+	url = https://github.com/giancorr/open_vins.git

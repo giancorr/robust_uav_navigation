@@ -40,7 +40,7 @@ windows:
         # 3. OpenVINS
         - sleep 6 
         - cd ~/ros2_ws && source install/setup.bash
-        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/vio_recovery/config/open_vins_configs/baby_k/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/corridor/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="DEBUG" rviz_enable:=true
+        - ros2 launch ov_msckf subscribe.launch.py config_path:=/root/ros2_ws/src/pkg/open_vins/config/baby_k/estimator_config.yaml max_cameras:=2 use_sim_time:=true use_approximate_sync:=true topic_camera0:=/camera topic_camera1:=/camera_rear use_stereo:=false topic_imu:=/world/corridor/model/baby_k_0/link/base_link/sensor/imu_sensor/imu verbosity:="DEBUG" rviz_enable:=true
     - shell_command:
         # 4. Drone TF
         - sleep 3
