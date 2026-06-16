@@ -144,7 +144,7 @@ private:
             if (!order_sent_) {
                 if (chosen_side != "NONE") {
                     order_msg.data = "DROP_THEN_STAMP_" + chosen_side;
-                    last_spiray_was_left_ = (chosen_side == "LEFT");
+                    last_spray_was_left_ = (chosen_side == "LEFT");
                 } else {
                     order_msg.data = "DROP_ONLY";
                 }
