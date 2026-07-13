@@ -22,14 +22,13 @@ surface_detector_node:
 
 vio_recovery_fsm_node:
   ros__parameters:
-    target_x: 0.0
-    target_y: 28.0
-    target_z: 1.5
-    target_yaw: 1.57
-    enable_spray: true
-    cruise_speed: 0.5
-    impact_threshold: 2.1
-    swipe_length: 1.0
+    enable_recovery: true        # If false, the FSM will ignore VIO failures and not trigger recovery
+    delay_before_drop: 1.5       # seconds to wait in STOP before dropping ground marker
+    strafe_velocity: 0.2         # m/s lateral velocity towards wall
+    strafe_timeout: 20.0         # s max time to strafe before giving up
+    swipe_length: 1.5            # m length of the swipe
+    swipe_velocity: 0.2          # m/s forward velocity during SWIPE
+    impact_force_threshold: 1.0  # N to detect wall contact
 
 spray_heuristic_node:
   ros__parameters:
@@ -53,7 +52,7 @@ tactile_odometry_node:
     inertia_xx: 0.0420
     inertia_yy: 0.0280
     inertia_zz: 0.0600
-    impact_force_threshold: 2.0
+    impact_force_threshold: 0.4
     impact_torque_threshold: 0.5
     enable_tactile_odometry: true
     max_thrust_n: 43.8

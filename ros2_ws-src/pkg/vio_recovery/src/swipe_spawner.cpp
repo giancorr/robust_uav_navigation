@@ -63,26 +63,25 @@ private:
         double swipe_length = 1.0; 
         double side_sign = (current_side_ == "LEFT") ? 1.0 : -1.0;
 
-        double wall_point_x = current_x_ + impact_wall_distance_ * (-std::sin(current_yaw_) * side_sign);
-        double wall_point_y = current_y_ + impact_wall_distance_ * (std::cos(current_yaw_) * side_sign);
-        
-        double spawn_x = wall_point_x + (swipe_length / 2.0) * std::cos(current_yaw_);
-        double spawn_y = wall_point_y + (swipe_length / 2.0) * std::sin(current_yaw_);
-        double spawn_z = current_z_ - 0.1; // Lowered by 10 cm compared to the drone
+        // Hardcode pose, this node is not needed in hardware
+        double spawn_x = current_x_ + (swipe_length / 2.0);
+        double spawn_y = (current_side_ == "LEFT") ? 0.97 : -0.97;
+        double spawn_z = current_z_ - 0.1;
 
-        double marker_yaw = current_yaw_;
+        double marker_yaw = 0.0;
         if (current_side_ == "LEFT") {
-            marker_yaw += M_PI; 
+            marker_yaw = M_PI;
         }
-        marker_yaw = std::atan2(std::sin(marker_yaw), std::cos(marker_yaw));
 
+        // Orientation: Yaw only (with pitch offset)
         Eigen::Quaterniond q_yaw(Eigen::AngleAxisd(marker_yaw, Eigen::Vector3d::UnitZ()));
         Eigen::Quaterniond q_pitch(Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitX()));
         Eigen::Quaterniond q = q_yaw * q_pitch; 
 
+        // Publish pose to RViz
         geometry_msgs::msg::PoseStamped aruco_pose;
         aruco_pose.header.stamp = this->now();
-        aruco_pose.header.frame_id = "global";
+        aruco_pose.header.frame_id = "map";
         aruco_pose.pose.position.x = spawn_x;
         aruco_pose.pose.position.y = spawn_y;
         aruco_pose.pose.position.z = spawn_z;
@@ -92,10 +91,12 @@ private:
         aruco_pose.pose.orientation.w = q.w();
         pub_aruco_pose_->publish(aruco_pose);
 
+        // Generate a unique name
         static int spawn_count = 1;
         char model_name[32];
         snprintf(model_name, sizeof(model_name), "paint_stroke_%02d", spawn_count++);
 
+        // Point to the new SDF file of the stain
         std::string template_path = "/root/ros2_ws/src/pkg/vio_recovery/models/aruco_rescue/model.sdf";
         std::ifstream template_file(template_path);
         if (!template_file.is_open()) return;
@@ -105,11 +106,13 @@ private:
         std::string sdf_string = buffer.str();
         template_file.close();
 
+        // Replace only the model name, ignoring tags
         size_t pos = sdf_string.find("MODEL_NAME_PLACEHOLDER");
         if (pos != std::string::npos) {
             sdf_string.replace(pos, std::string("MODEL_NAME_PLACEHOLDER").length(), std::string(model_name));
         }
 
+        // Save SDF
         std::string sdf_path = "/tmp/" + std::string(model_name) + ".sdf";
         std::ofstream sdf_file(sdf_path);
         if (sdf_file.is_open()) {
@@ -117,6 +120,7 @@ private:
             sdf_file.close();
         }
 
+        // Call service
         std::string cmd = "gz service -s /world/corridor/create --reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout 5000 --req \"sdf_filename: \\\"" + sdf_path + "\\\", name: \\\"" + std::string(model_name) + "\\\", pose: {position: {x: " + std::to_string(spawn_x) + ", y: " + std::to_string(spawn_y) + ", z: " + std::to_string(spawn_z) + "}, orientation: {x: " + std::to_string(q.x()) + ", y: " + std::to_string(q.y()) + ", z: " + std::to_string(q.z()) + ", w: " + std::to_string(q.w()) + "}}\" > /dev/null 2>&1 &";
         system(cmd.c_str());
     }

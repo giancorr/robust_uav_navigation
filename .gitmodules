@@ -1,3 +1,15 @@
 [submodule "ros2_ws-src/pkg/open_vins"]
 	path = ros2_ws-src/pkg/open_vins
 	url = https://github.com/giancorr/open_vins.git
+[submodule "ros2_ws-src/pkg/babyk_drone_manager"]
+	path = ros2_ws-src/pkg/babyk_drone_manager
+	url = https://github.com/Prisma-Drone-Team/babyk_drone_manager.git
+	branch = vio
+[submodule "ros2_ws-src/pkg/path_planner"]
+	path = ros2_ws-src/pkg/path_planner
+	url = https://github.com/Prisma-Drone-Team/path_planner.git
+	branch = vio
+[submodule "ros2_ws-src/pkg/traj_interp"]
+	path = ros2_ws-src/pkg/traj_interp
+	url = https://github.com/Prisma-Drone-Team/traj_interp.git
+	branch = vio

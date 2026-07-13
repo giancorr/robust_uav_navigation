@@ -35,12 +35,13 @@ ament_target_dependencies(degeneracy_monitor rclcpp std_msgs)
 add_executable(vio_recovery_fsm src/vio_recovery_fsm.cpp)
 ament_target_dependencies(vio_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
-add_executable(tactile_odometry src/tactile_odometry.cpp)
-ament_target_dependencies(tactile_odometry rclcpp nav_msgs px4_msgs geometry_msgs std_msgs)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
-add_executable(surface_detector_node src/surface_detector_node.cpp)
-ament_target_dependencies(surface_detector_node rclcpp sensor_msgs cv_bridge OpenCV)
-target_link_libraries(surface_detector_node ${OpenCV_LIBRARIES})
+add_executable(tactile_odometry src/tactile_odometry.cpp)
+ament_target_dependencies(tactile_odometry rclcpp nav_msgs px4_msgs geometry_msgs std_msgs tf2_ros tf2_geometry_msgs)
+
+
 
 add_executable(swipe_spawner src/swipe_spawner.cpp)
 ament_target_dependencies(swipe_spawner rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
@@ -71,10 +72,12 @@ ament_target_dependencies(spray_heuristic_node
   std_msgs 
   geometry_msgs
   px4_msgs
+  nav_msgs
+  sensor_msgs
 )
 
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(surface_detector_node ${cpp_typesupport_target})
+
 target_link_libraries(vio_recovery_fsm ${cpp_typesupport_target})
 target_link_libraries(swipe_spawner ${cpp_typesupport_target})
 target_link_libraries(drop_spawner ${cpp_typesupport_target})
@@ -85,7 +88,7 @@ install(TARGETS
   degeneracy_monitor
   vio_recovery_fsm
   tactile_odometry
-  surface_detector_node
+
   swipe_spawner
   drop_spawner
   feature_counter_node

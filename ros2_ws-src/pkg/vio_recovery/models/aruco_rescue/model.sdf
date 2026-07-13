@@ -17,7 +17,7 @@
           <emissive>0.0 0.0 0.0 1.0</emissive>
           <pbr>
             <metal>
-              <albedo_map>model://aruco_rescue/materials/textures/paint_swipe.png</albedo_map>
+              <albedo_map>file:///root/ros2_ws/src/pkg/vio_recovery/models/aruco_rescue/materials/textures/paint_swipe.png</albedo_map>
               <roughness>1.0</roughness>
               <metalness>0.0</metalness>
             </metal>

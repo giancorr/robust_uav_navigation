@@ -8,10 +8,17 @@
 #include <Eigen/Geometry>
 #include <cmath>
 
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+
 class TactileOdometry : public rclcpp::Node {
 public:
     TactileOdometry() : Node("tactile_odometry"), is_initialized_(false) {
         
+        tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
         this->declare_parameter<double>("mass", 2.23);
         this->declare_parameter<double>("inertia_xx", 0.0420);
         this->declare_parameter<double>("inertia_yy", 0.0280);
@@ -49,6 +56,10 @@ public:
     }
 
 private:
+
+    std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    
     double mass_;
     bool enable_tactile_ = true;
     Eigen::Matrix3d inertia_;
@@ -91,8 +102,10 @@ private:
 
     void init_transformations() {
         Eigen::Matrix3d R_enu_to_ned;
-        R_enu_to_ned << 0,  1,  0,
-                        1,  0,  0,
+        
+        // Rotation matrices for standard frame transformations
+        R_enu_to_ned << 1,  0,  0,
+                        0, -1,  0,
                         0,  0, -1;
         q_enu_to_ned_ = Eigen::Quaterniond(R_enu_to_ned);
 
@@ -135,13 +148,47 @@ private:
         if (std::isnan(msg->pose.pose.position.x) || std::isnan(msg->twist.twist.linear.x)) return;
 
         rclcpp::Time current_time = msg->header.stamp;
+        
+        // COORDINATE TRANSFORMATIONS      
+        // Transform the pose to 'odom' frame to ensure it is always standard ENU
+        geometry_msgs::msg::PoseStamped pose_in;
+        pose_in.header = msg->header;
+        pose_in.pose = msg->pose.pose;
+        geometry_msgs::msg::PoseStamped pose_odom;
+        try {
+            // Use TimePointZero to avoid deadlock in single threaded executor!
+            geometry_msgs::msg::TransformStamped tf_g2o = tf_buffer_->lookupTransform("odom", msg->header.frame_id, tf2::TimePointZero);
+            tf2::doTransform(pose_in, pose_odom, tf_g2o);
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "TF error global->odom: %s", ex.what());
+            return;
+        }
+        
+        // Transform the velocity vector to 'odom' frame
+        geometry_msgs::msg::Vector3Stamped vel_in;
+        vel_in.header = msg->header;
+        vel_in.vector = msg->twist.twist.linear;
+        geometry_msgs::msg::Vector3Stamped vel_odom;
+        try {
+            geometry_msgs::msg::TransformStamped tf_g2o = tf_buffer_->lookupTransform("odom", msg->header.frame_id, rclcpp::Time(0));
+            tf2::doTransform(vel_in, vel_odom, tf_g2o);
+        } catch (tf2::TransformException &ex) {
+            return;
+        }
 
-        Eigen::Vector3d pos_meas(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
-        Eigen::Vector3d vel_meas(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
-        Eigen::Vector4d quat_meas(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+        // Convert standard ENU (odom) to pseudo-FLU (expected by our internal logic)
+        Eigen::Vector3d pos_meas(pose_odom.pose.position.y, -pose_odom.pose.position.x, pose_odom.pose.position.z);
+        Eigen::Vector3d vel_meas(vel_odom.vector.y, -vel_odom.vector.x, vel_odom.vector.z);
+        
+        // Convert orientation from ENU to pseudo-FLU (-90 deg rotation around Z)
+        Eigen::Quaterniond q_enu(pose_odom.pose.orientation.w, pose_odom.pose.orientation.x, pose_odom.pose.orientation.y, pose_odom.pose.orientation.z);
+        Eigen::Quaterniond q_enu_to_pseudo_flu(Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitZ()));
+        Eigen::Quaterniond q_pseudo_flu = q_enu_to_pseudo_flu * q_enu;
+        
+        Eigen::Vector4d quat_meas(q_pseudo_flu.w(), q_pseudo_flu.x(), q_pseudo_flu.y(), q_pseudo_flu.z());
         Eigen::Vector3d omega_meas(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
 
-        // Unilateral Kinematic Projection Logic
+        // IMPACT DETECTION     
         if (!is_initialized_) {
             last_time_ = current_time;
             last_hybrid_pos_ = pos_meas;
@@ -160,16 +207,18 @@ private:
         Eigen::Vector3d hybrid_vel;
         Eigen::Quaterniond q_bypass(quat_meas(0), quat_meas(1), quat_meas(2), quat_meas(3));
 
+        // UNILATERAL KINEMATIC PROJECTION
+        
         if (!enable_tactile_) {
 
             hybrid_pos = pos_meas;
             hybrid_vel = vel_meas;
 
         } else if (is_impacting) {
-
+            
+            // Calculate contact normal vector
             Eigen::Quaterniond q_curr(quat_meas(0), quat_meas(1), quat_meas(2), quat_meas(3));
             Eigen::Vector3d instant_normal = q_curr * (true_impact_force / force_norm);
-
             instant_normal.z() = 0.0;
             
             if (instant_normal.norm() > 1e-6) {
@@ -177,6 +226,7 @@ private:
                 if (!was_in_contact_) {
                     wall_normal_enu_ = instant_normal;
                 } else {
+                    // Low-pass filter the normal for stability
                     wall_normal_enu_ = 0.95 * wall_normal_enu_ + 0.05 * instant_normal;
                     wall_normal_enu_.normalize();
                 }
@@ -185,40 +235,33 @@ private:
             if (!was_in_contact_) {
                 // Transition: Flight -> Contact
                 wall_point_ = pos_meas + pos_offset_;
-                
                 was_in_contact_ = true;
                 RCLCPP_INFO(this->get_logger(), "IMPACT DETECTED! Unilateral Constraint Activated. Force: %.2f N", force_norm);
                 RCLCPP_INFO(this->get_logger(), "Wall Normal: (%.2f, %.2f, %.2f)", wall_normal_enu_.x(), wall_normal_enu_.y(), wall_normal_enu_.z());
             }
             
-            // Unilateral Kinematic Projection
             Eigen::Vector3d current_pos_est = pos_meas + pos_offset_;
-            
             double d_pen = (current_pos_est - wall_point_).dot(wall_normal_enu_);
             double v_pen = vel_meas.dot(wall_normal_enu_);
             
-            // Position control
+            // Position projection (prevent wall penetration)
             if (d_pen < 0.0) {
-                // Penetration: project orthogonally onto the wall surface
                 hybrid_pos = current_pos_est - d_pen * wall_normal_enu_;
             } else {
-                // Moving away or sliding externally: free
                 hybrid_pos = current_pos_est;
             }
             
-            // Velocity control
+            // Velocity projection (kill velocity going into the wall)
             if (v_pen < 0.0) {
-                // Velocity towards the inside: zero out the component perpendicular to the wall
                 hybrid_vel = vel_meas - v_pen * wall_normal_enu_;
             } else {
-                // Velocity outwards or parallel: free
                 hybrid_vel = vel_meas;
             }
             
         } else {
             if (was_in_contact_) {
                 // Transition: Contact -> Flight
-                // Recalculate the offset so that pos_meas + pos_offset re-hooks smoothly to the last hybrid_pos
+                // Recalculate offset to smoothly decouple from the wall
                 pos_offset_ = last_hybrid_pos_ - pos_meas;
                 was_in_contact_ = false;
                 
@@ -226,14 +269,12 @@ private:
                             pos_offset_.x(), pos_offset_.y(), pos_offset_.z());
             }
             
-            // Free flight bypass, pure pass-through with offset for continuity
+            // Free flight: bypass odometry with continuous offset
             hybrid_pos = pos_meas + pos_offset_;
             hybrid_vel = vel_meas; 
             
-            // Update the bias at steady state (low-pass filter) to absorb aerodynamic model error
+            // Update biases during free flight (low-pass filter)
             force_bias_ = 0.99 * force_bias_ + 0.01 * last_force_body_;
-            
-            // Learn the acceleration bias (reconstructed in a filtered way).
             filtered_thrust_ += 10.0 * (current_thrust_ - filtered_thrust_) * dt;
             
             Eigen::Quaterniond q_curr_free(quat_meas(0), quat_meas(1), quat_meas(2), quat_meas(3));
@@ -245,6 +286,8 @@ private:
             a_body_bias_ = 0.99 * a_body_bias_ + 0.01 * error_a_body;
         }
 
+        // PUBLISH TO PX4
+        
         last_hybrid_pos_ = hybrid_pos;
         publish_to_px4(current_time, hybrid_pos, hybrid_vel, q_bypass);
     }

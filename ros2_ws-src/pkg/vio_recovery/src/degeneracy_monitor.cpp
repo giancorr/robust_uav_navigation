@@ -5,7 +5,7 @@
 
 class DegeneracyMonitor : public rclcpp::Node {
 public:
-    //VIO State
+    // VIO State
     enum class VioState {
         CONSISTENT,
         POTENTIALLY_INCONSISTENT,

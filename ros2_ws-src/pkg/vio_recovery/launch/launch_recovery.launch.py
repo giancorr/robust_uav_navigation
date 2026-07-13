@@ -34,21 +34,21 @@ def generate_launch_description():
             parameters=[config_file, {'is_downcam': True}]
         ),
         
-        Node(
-            package='vio_recovery',
-            executable='surface_detector_node',
-            name='surface_detector_node',
-            output='screen',
-            parameters=[config_file]
-        ),
+        # Node(
+        #     package='vio_recovery',
+        #     executable='surface_detector_node',
+        #     name='surface_detector_node',
+        #     output='screen',
+        #     parameters=[config_file]
+        # ),
         
-        Node(
-            package='vio_recovery',
-            executable='tactile_odometry',
-            name='tactile_odometry_node',
-            output='screen',
-            parameters=[config_file, {'use_sim_time': True}]
-        ),
+        # Node(
+        #     package='vio_recovery',
+        #     executable='tactile_odometry',
+        #     name='tactile_odometry_node',
+        #     output='screen',
+        #     parameters=[config_file, {'use_sim_time': True}]
+        # ),
         
         # Lateral spawner
         Node(
@@ -59,7 +59,7 @@ def generate_launch_description():
             parameters=[config_file]
         ),
 
-        # Down spawner
+        # Down spawner (KEEP THIS!)
         Node(
             package='vio_recovery',
             executable='drop_spawner',

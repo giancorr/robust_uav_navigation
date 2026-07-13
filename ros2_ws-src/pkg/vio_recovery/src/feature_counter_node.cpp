@@ -26,6 +26,7 @@ public:
     }
 
 private:
+
     // Count features in front camera
     void front_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
         try {

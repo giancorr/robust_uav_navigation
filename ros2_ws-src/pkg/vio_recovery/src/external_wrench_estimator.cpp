@@ -80,8 +80,10 @@ private:
     double max_torque_out_;
 
     // Rotation matrix FRD to FLU
-    const Eigen::Matrix3d R_frd_to_flu_ = 
-        (Eigen::Matrix3d() << 1, 0, 0, 0, -1, 0, 0, 0, -1).finished();
+    const Eigen::Matrix3d R_frd_to_flu_ = (Eigen::Matrix3d() << 
+         1,  0,  0, 
+         0, -1,  0, 
+         0,  0, -1).finished();
 
     rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr wrench_pub_;
     rclcpp::Subscription<px4_msgs::msg::VehicleThrustSetpoint>::SharedPtr thrust_sub_;

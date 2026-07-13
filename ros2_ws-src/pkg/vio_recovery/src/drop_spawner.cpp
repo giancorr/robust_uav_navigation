@@ -1,6 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/bool.hpp>
-#include <px4_msgs/msg/vehicle_odometry.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <cmath>
 #include <cstdlib>
@@ -17,29 +17,24 @@ public:
         rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
         auto qos_odom = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-        // Subscribe to odometry
-        sub_odom_ = this->create_subscription<px4_msgs::msg::VehicleOdometry>(
-            "/fmu/out/vehicle_odometry", qos_odom,
-            [this](const px4_msgs::msg::VehicleOdometry::SharedPtr msg) {
+        // Subscribe to Gazebo odometry instead of PX4, since this node is not needed in hardware
+        sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/model/baby_k_0/odometry", qos_odom,
+            [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
                 
-                // Conversion from NED (PX4) to ENU (Gazebo)
-                current_x_ = msg->position[1];  // East
-                current_y_ = msg->position[0];  // North
-                current_z_ = -msg->position[2]; // Up
+                // Gazebo Odometry is already ENU
+                current_x_ = msg->pose.pose.position.x;
+                current_y_ = msg->pose.pose.position.y;
+                current_z_ = msg->pose.pose.position.z;
 
-                // Yaw calculation
-                Eigen::Quaterniond q_ned(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
-                Eigen::Matrix3d R_ned_to_enu;
-                R_ned_to_enu << 0, 1,  0,
-                                1, 0,  0,
-                                0, 0, -1;
-                Eigen::Matrix3d R_frd_to_flu;
-                R_frd_to_flu << 1,  0,  0,
-                                0, -1,  0,
-                                0,  0, -1;
-                
-                Eigen::Matrix3d R_body_enu = R_ned_to_enu * q_ned.toRotationMatrix() * R_frd_to_flu;
-                current_yaw_ = std::atan2(R_body_enu(1, 0), R_body_enu(0, 0));
+                Eigen::Quaterniond q(
+                    msg->pose.pose.orientation.w,
+                    msg->pose.pose.orientation.x,
+                    msg->pose.pose.orientation.y,
+                    msg->pose.pose.orientation.z
+                );
+                Eigen::Matrix3d R = q.toRotationMatrix();
+                current_yaw_ = std::atan2(R(1, 0), R(0, 0));
             });
 
         // Subscribe to spawn command
@@ -63,11 +58,11 @@ public:
 private:
     void spawn_rescue_target() {
         
-        // Dynamic calculation: perfect centering based on the drone's actual height!
+        // Dynamic calculation
         double tilt_angle_rad = 15.0 * (M_PI / 180.0);
         double backward_offset = std::abs(current_z_) * std::tan(tilt_angle_rad); 
 
-        // Offset coordinates backwards to finish exactly in the crosshairs
+        // Offset coordinates backwards
         double spawn_x = current_x_ - (backward_offset * std::cos(current_yaw_));
         double spawn_y = current_y_ - (backward_offset * std::sin(current_yaw_));
         double spawn_z = 0.015; // Slightly raised to avoid flickering with the floor
@@ -121,7 +116,7 @@ private:
             sdf_file.close();
         }
 
-        // Call service
+        // Call service (removed /dev/null to see errors)
         std::string cmd = 
             "gz service -s /world/corridor/create"
             " --reqtype gz.msgs.EntityFactory"
@@ -135,9 +130,10 @@ private:
             " orientation: {x: " + std::to_string(q.x()) + 
             ", y: " + std::to_string(q.y()) + 
             ", z: " + std::to_string(q.z()) + 
-            ", w: " + std::to_string(q.w()) + "}}\" > /dev/null 2>&1 &";
+            ", w: " + std::to_string(q.w()) + "}}\" &";
 
-        system(cmd.c_str());
+        int ret = system(cmd.c_str());
+        RCLCPP_INFO(this->get_logger(), "Spawned %s with ret %d", model_name, ret);
         
         RCLCPP_INFO(this->get_logger(), "Spawned stain %s at coordinates X:%.2f, Y:%.2f", model_name, spawn_x, spawn_y);
     }
@@ -145,7 +141,7 @@ private:
     double current_x_, current_y_, current_z_, current_yaw_;
     bool is_spawned_; 
 
-    rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr sub_odom_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_spawn_cmd_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_aruco_pose_;
 };
