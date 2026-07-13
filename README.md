@@ -10,6 +10,7 @@ The system consists of three main ROS2 packages:
 uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace
 │   ├── babyk_drone_manager/        # Drone state management, TF and safety
+│   ├── drone_odometry/             # Odometry processing and conversion
 │   ├── open_vins/                  # Visual-Inertial Odometry estimator (personal fork)
 │   ├── path_planner/               # Global path planning and exploration logic
 │   ├── traj_interp/                # Trajectory interpolator for smooth setpoint generation
@@ -99,6 +100,7 @@ tmuxp load src/pkg/babyk_drone_manager/utils/fr_simulation.yml
 Each ROS2 package used in this system provides specific functionality for the VIO recovery pipeline:
 
 - **babyk_drone_manager**: Handles TF broadcasting, basic movement management, and general safety bounds.
+- **drone_odometry**: Provides odometry conversion and ground truth processing for the UAV.
 - **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
 - **path_planner**: Calculates global collision-free paths for autonomous exploration.
 - **traj_interp**: Interpolates global paths into smooth local trajectory setpoints for PX4.
@@ -136,6 +138,11 @@ A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter
 **State management and safety**
 
 Monitors overall drone status and implements safety functions. Also contains the core TMUX simulation files (`fr_simulation.yml`) and TF publishers required to link the simulated Gazebo drone with the ROS2 TF tree and PX4 offboard control.
+
+### 📏 drone_odometry
+**Odometry Processing and Conversion**
+
+Responsible for handling various odometry sources, including ground truth conversion from simulation and sensor fusion data preparation, ensuring accurate localization data is available to the rest of the navigation stack.
 
 ### 🗺️ path_planner
 **Autonomous Path Generation**
