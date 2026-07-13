@@ -1,0 +1,15 @@
+vio_wall_densifier:
+  ros__parameters:
+    # Lunghezza massima (in metri) di un muro generato. 
+    # Se i punti che formano il muro distano tra loro più di questo valore, il muro non viene generato 
+    # per evitare di creare enormi pareti in zone vuote.
+    max_wall_length: 3.0
+    
+    # Raggio massimo (in metri) centrato sul drone.
+    # Solo i punti sparsi di OpenVINS che si trovano entro questa distanza dal drone verranno usati per cercare muri.
+    max_drone_distance: 5.0
+    
+    # Tolleranza di clustering (in metri).
+    # È la distanza massima consentita tra due punti affinché vengano considerati parte dello stesso "gruppo" (stesso muro).
+    # Ad esempio, 0.5 significa che se c'è un buco di più di 50 cm tra due pareti, queste vengono considerate separate e non unite.
+    cluster_tolerance: 0.8
