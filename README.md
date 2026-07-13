@@ -11,6 +11,8 @@ uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace
 │   ├── babyk_drone_manager/        # Drone state management, TF and safety
 │   ├── open_vins/                  # Visual-Inertial Odometry estimator (personal fork)
+│   ├── path_planner/               # Global path planning and exploration logic
+│   ├── traj_interp/                # Trajectory interpolator for smooth setpoint generation
 │   └── vio_recovery/               # Core recovery logic, tactile odometry, and FSM
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
@@ -98,6 +100,8 @@ Each ROS2 package used in this system provides specific functionality for the VI
 
 - **babyk_drone_manager**: Handles TF broadcasting, basic movement management, and general safety bounds.
 - **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
+- **path_planner**: Calculates global collision-free paths for autonomous exploration.
+- **traj_interp**: Interpolates global paths into smooth local trajectory setpoints for PX4.
 - **vio_recovery**: The core novel package containing the recovery Finite State Machine, tactile odometry, and hardware fallback logic.
 
 ## Important Notes
@@ -132,3 +136,13 @@ A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter
 **State management and safety**
 
 Monitors overall drone status and implements safety functions. Also contains the core TMUX simulation files (`fr_simulation.yml`) and TF publishers required to link the simulated Gazebo drone with the ROS2 TF tree and PX4 offboard control.
+
+### 🗺️ path_planner
+**Autonomous Path Generation**
+
+Responsible for global navigation and exploration. It generates high-level routes and collision-free paths based on map data or exploration goals, feeding them to the trajectory interpolator.
+
+### 📈 traj_interp
+**Trajectory Interpolation**
+
+Takes the sparse waypoints provided by the path planner and interpolates them into a continuous, high-frequency stream of smooth local trajectory setpoints that PX4 can comfortably track in Offboard mode.

@@ -13,3 +13,7 @@
 	path = ros2_ws-src/pkg/traj_interp
 	url = https://github.com/Prisma-Drone-Team/traj_interp.git
 	branch = vio
+[submodule "ros2_ws-src/pkg/drone_odometry"]
+	path = ros2_ws-src/pkg/drone_odometry
+	url = https://github.com/Prisma-Drone-Team/drone_odometry.git
+	branch = master
