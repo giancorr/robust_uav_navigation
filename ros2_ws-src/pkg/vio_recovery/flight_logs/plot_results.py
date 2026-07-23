@@ -22,7 +22,29 @@ def add_health_background(ax, t_health, health_states, t_min, t_max):
     color, alpha = colors.get(state, ('gray', 0.1))
     ax.axvspan(t_health[-1], t_max, facecolor=color, alpha=alpha, linewidth=0)
 
-def myPlot(time, data_list, labels, title, ncols=2, use_tex=False, t_health=None, health_states=None):
+def add_fsm_background(ax, t_fsm, fsm_states, t_min, t_max):
+    """Add colored background based on FSM state."""
+    colors = {
+        0: ('white', 0.0),    # NAVIGATE
+        1: ('#FFF59D', 0.5),  # STRAFE - Yellow
+        2: ('#CE93D8', 0.5),  # SWIPE - Purple
+        3: ('#80CBC4', 0.5)   # RETURN - Teal
+    }
+    if len(t_fsm) == 0:
+        return
+    for i in range(len(t_fsm) - 1):
+        state = int(fsm_states[i])
+        if state in colors:
+            color, alpha = colors[state]
+            if alpha > 0:
+                ax.axvspan(t_fsm[i], t_fsm[i+1], facecolor=color, alpha=alpha, linewidth=0)
+    state = int(fsm_states[-1])
+    if state in colors:
+        color, alpha = colors[state]
+        if alpha > 0:
+            ax.axvspan(t_fsm[-1], t_max, facecolor=color, alpha=alpha, linewidth=0)
+
+def myPlot(time, data_list, labels, title, ncols=2, use_tex=False, t_health=None, health_states=None, t_fsm=None, fsm_states=None):
     plt.rcParams.update({"text.usetex": use_tex, "font.family": "serif"})
     n = len(data_list)
     nrows = int(np.ceil(n / ncols))
@@ -51,9 +73,12 @@ def myPlot(time, data_list, labels, title, ncols=2, use_tex=False, t_health=None
         axes[i].set_xlabel(r"$t$ [s]")
         axes[i].grid(True, linestyle='-', alpha=0.3)
 
+        if t_health is not None and health_states is not None:
+            add_health_background(axes[i], t_health, health_states, time_plot[0], time_plot[-1])
+        if t_fsm is not None and fsm_states is not None:
+            add_fsm_background(axes[i], t_fsm, fsm_states, time_plot[0], time_plot[-1])
+
         if "Lambda" in labels[i]:
-            if t_health is not None and health_states is not None:
-                add_health_background(axes[i], t_health, health_states, time_plot[0], time_plot[-1])
             axes[i].axhline(y=350, color='r', linestyle='--', alpha=0.8, label=r'$K_{j,1}$')
             axes[i].axhline(y=450, color='b', linestyle='--', alpha=0.8, label=r'$K_{j,2}$')
 
@@ -139,6 +164,9 @@ def main():
     gt      = load_data_safe(os.path.join(base_path, 'log_ground_truth.txt') if base_path else 'log_ground_truth.txt')
     lam     = load_data_safe(os.path.join(base_path, 'log_eigenvalues.txt') if base_path else 'log_eigenvalues.txt')
     health  = load_data_safe(os.path.join(base_path, 'log_health.txt') if base_path else 'log_health.txt')
+    wrench  = load_data_safe(os.path.join(base_path, 'log_wrench.txt') if base_path else 'log_wrench.txt')
+    teleop  = load_data_safe(os.path.join(base_path, 'log_teleop.txt') if base_path else 'log_teleop.txt')
+    fsm     = load_data_safe(os.path.join(base_path, 'log_fsm.txt') if base_path else 'log_fsm.txt')
 
     if vio is None or gt is None or len(vio) == 0 or len(gt) == 0:
         print("[!] Critical error: missing VIO or ground truth data.")
@@ -184,6 +212,29 @@ def main():
         health_states = health[:, 1]
         print(f"[*] Loaded {len(t_health)} VIO health records.")
 
+    has_wrench = wrench is not None and len(wrench) > 0
+    if has_wrench:
+        t_wrench = wrench[:, 0]
+        fx, fy, fz = wrench[:, 1], wrench[:, 2], wrench[:, 3]
+        tx, ty, tz = wrench[:, 4], wrench[:, 5], wrench[:, 6]
+        print(f"[*] Loaded {len(t_wrench)} Wrench records.")
+
+    # Extract Teleop data
+    has_teleop = teleop is not None and len(teleop) > 0
+    if has_teleop:
+        t_teleop = teleop[:, 0]
+        vx_tel, vy_tel, vz_tel = teleop[:, 1], teleop[:, 2], teleop[:, 3]
+        wx_tel, wy_tel, wz_tel = teleop[:, 4], teleop[:, 5], teleop[:, 6]
+        print(f"[*] Loaded {len(t_teleop)} Teleop records.")
+
+    # Extract FSM data
+    has_fsm = fsm is not None and len(fsm) > 0
+    t_fsm, fsm_states = None, None
+    if has_fsm:
+        t_fsm = fsm[:, 0]
+        fsm_states = fsm[:, 1]
+        print(f"[*] Loaded {len(t_fsm)} FSM records.")
+
     # Time alignment
     start_time = min(t_vio[0], t_gt[0])
     t_vio -= start_time
@@ -191,6 +242,9 @@ def main():
     if has_px4:      t_px4     -= start_time
     if has_tactile:  t_tactile -= start_time
     if has_health:   t_health  -= start_time
+    if has_wrench:   t_wrench  -= start_time
+    if has_teleop:   t_teleop  -= start_time
+    if has_fsm:      t_fsm     -= start_time
 
     # Interpolate GT and PX4/Tactile onto VIO timestamps
     x_gt_interp     = np.interp(t_vio, t_gt, x_gt)
@@ -269,8 +323,7 @@ def main():
         {'vio': z_vio, 'ref': z_gt_interp, 'px4': z_px4_interp if has_px4 else None, 'tactile': z_tactile_interp if has_tactile else None},
     ]
     myPlot(t_vio, fig_pos_data, ["X [m]", "Y [m]", "Z [m]"],
-           "Position Tracking (ENU Frame)", ncols=3, use_tex=args.tex,
-           t_health=t_health, health_states=health_states)
+           "Position Tracking (ENU Frame)", ncols=3, use_tex=args.tex)
 
     # Figure 2: Orientation tracking
     fig_rpy_data = [
@@ -279,8 +332,7 @@ def main():
         {'vio': yaw_vio,   'ref': yaw_gt_interp,   'px4': yaw_px4_interp   if has_px4 else None, 'tactile': yaw_tactile_interp if has_tactile else None},
     ]
     myPlot(t_vio, fig_rpy_data, ["Roll [rad]", "Pitch [rad]", "Yaw [rad]"],
-           "Orientation Tracking", ncols=3, use_tex=args.tex,
-           t_health=t_health, health_states=health_states)
+           "Orientation Tracking", ncols=3, use_tex=args.tex)
 
     # Figure 3: Eigenvalues
     if lam is not None and len(lam) > 0 and lam.shape[1] >= 4:
@@ -317,8 +369,7 @@ def main():
     ]
     myPlot(t_vio, fig_err_data,
            ["Abs Error X [m]", "Abs Error Y [m]", "Abs Error Z [m]", "Total 3D Error [m]"],
-           "Absolute Tracking Errors (VIO vs Tactile)", ncols=2, use_tex=args.tex,
-           t_health=t_health, health_states=health_states)
+           "Absolute Tracking Errors (VIO vs Tactile)", ncols=2, use_tex=args.tex)
 
     # Figure 6: PX4/Tactile vs VIO error comparison
     if has_px4 or has_tactile:
@@ -329,13 +380,39 @@ def main():
         if has_tactile:
             ax_cmp.plot(t_vio, err_tactile_3d, 'g-.', label='Tactile Odometry 3D Error', linewidth=1.5)
             
-        if t_health is not None and health_states is not None:
-            add_health_background(ax_cmp, t_health, health_states, t_vio[0], t_vio[-1])
         ax_cmp.set_title("3D Tracking Error Comparison")
         ax_cmp.set_xlabel(r"$t$ [s]")
         ax_cmp.set_ylabel("3D Error [m]")
         ax_cmp.grid(True, linestyle='-', alpha=0.3)
         ax_cmp.legend(loc='best', fontsize='small')
+
+    if has_wrench:
+        fig_force_data = [{'vio': fx}, {'vio': fy}, {'vio': fz}]
+        myPlot(t_wrench, fig_force_data, ["Force X [N]", "Force Y [N]", "Force Z [N]"],
+               "External Force Estimator", ncols=3, use_tex=args.tex)
+        
+        fig_torque_data = [{'vio': tx}, {'vio': ty}, {'vio': tz}]
+        myPlot(t_wrench, fig_torque_data, ["Torque X [Nm]", "Torque Y [Nm]", "Torque Z [Nm]"],
+               "External Torque Estimator", ncols=3, use_tex=args.tex)
+
+    # Figure 8: Teleop Commands
+    if has_teleop:
+        fig_teleop_data = [{'vio': vx_tel}, {'vio': vy_tel}, {'vio': wz_tel}]
+        labels = ["Vx [m/s]", "Vy [m/s]", "Wz [rad/s]"]
+        
+        if has_fsm:
+            # Interpolate FSM states onto t_teleop for plotting as a line
+            fsm_states_interp = np.zeros_like(t_teleop)
+            for i, t in enumerate(t_teleop):
+                idx = np.searchsorted(t_fsm, t) - 1
+                idx = max(0, min(idx, len(fsm_states)-1))
+                fsm_states_interp[i] = fsm_states[idx]
+            fig_teleop_data.append({'vio': fsm_states_interp})
+            labels.append("FSM State (0=NAV, 1=STR, 2=SWP, 3=RET)")
+            
+        myPlot(t_teleop, fig_teleop_data, labels,
+               "Teleop Commanded Velocities & FSM State", ncols=2, use_tex=args.tex,
+               t_fsm=t_fsm, fsm_states=fsm_states)
 
     if args.save:
         for i in plt.get_fignums():

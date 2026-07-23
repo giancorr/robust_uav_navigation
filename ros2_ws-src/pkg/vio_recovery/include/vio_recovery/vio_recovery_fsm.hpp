@@ -78,15 +78,24 @@ private:
     double swipe_length_;
     double target_yaw_{0.0};  // desired yaw to align parallel to wall
     double strafe_duration_actual_{0.0};
+    
 
     // Configurable Parameters
     bool enable_recovery_;          // If false, ignore VIO failures
+    bool trigger_on_potentially_inconsistent_; // If true, trigger on POTENTIALLY_INCONSISTENT
     double delay_before_drop_;      // wait before dropping ground marker (STOP state)
-    double strafe_velocity_;        // m/s lateral velocity
-    double strafe_timeout_;         // max seconds to strafe before giving up
+    double strafe_velocity_;        // m/s lateral velocity towards wall
+    double return_velocity_;        // m/s lateral velocity returning to center
+    double return_distance_;        // m distance to travel away from the wall
+    double return_start_y_;         // Y coordinate where RETURN started
+    double max_strafe_distance_;    // m max distance to strafe
+    double strafe_timeout_;         // computed max seconds to strafe
     double swipe_duration_;         // seconds to push forward during swipe
     double swipe_velocity_;         // m/s forward velocity during swipe
     double impact_force_threshold_; // N to detect wall contact
+    double trigger_grace_time_;     // seconds to wait before allowing triggers
+    rclcpp::Time node_start_time_;  // Time when the node started
+    rclcpp::Time last_fsm_time_;    // To calculate real dt in fsm_loop
 
     // Subscriptions
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_health_;
@@ -100,10 +109,13 @@ private:
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_drone_cmd_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_drop_cmd_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_swipe_cmd_;
-    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pub_vel_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pub_ff_cmd_vel_;
+    rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr pub_target_yaw_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_strafe_direction_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
     rclcpp::Publisher<std_msgs::msg::Int32>::SharedPtr pub_fsm_state_num_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_goal_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr pub_teleop_active_;
 
     rclcpp::TimerBase::SharedPtr timer_;
 };

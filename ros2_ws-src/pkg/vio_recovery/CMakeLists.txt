@@ -35,11 +35,14 @@ ament_target_dependencies(degeneracy_monitor rclcpp std_msgs)
 add_executable(vio_recovery_fsm src/vio_recovery_fsm.cpp)
 ament_target_dependencies(vio_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
+add_executable(vio_recovery_controller src/vio_recovery_controller.cpp)
+ament_target_dependencies(vio_recovery_controller rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
+
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
-add_executable(tactile_odometry src/tactile_odometry.cpp)
-ament_target_dependencies(tactile_odometry rclcpp nav_msgs px4_msgs geometry_msgs std_msgs tf2_ros tf2_geometry_msgs)
+add_executable(flight_odometry_filter src/flight_odometry_filter.cpp)
+ament_target_dependencies(flight_odometry_filter rclcpp nav_msgs px4_msgs geometry_msgs std_msgs tf2_ros tf2_geometry_msgs)
 
 
 
@@ -87,7 +90,8 @@ target_link_libraries(spray_heuristic_node ${cpp_typesupport_target})
 install(TARGETS
   degeneracy_monitor
   vio_recovery_fsm
-  tactile_odometry
+  vio_recovery_controller
+  flight_odometry_filter
 
   swipe_spawner
   drop_spawner

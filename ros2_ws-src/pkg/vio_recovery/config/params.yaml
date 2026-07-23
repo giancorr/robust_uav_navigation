@@ -6,7 +6,7 @@ degeneracy_monitor_node:
     ky2: 750.0
     kz1: 300.0
     kz2: 400.0
-    delta_t: 0.05
+    delta_t: 0.1
     stagnation_epsilon: 1e-4
     max_stagnation_counts: 5
 
@@ -18,17 +18,26 @@ surface_detector_node:
   ros__parameters:
     min_valid_dist: 0.2
     max_valid_dist: 6.0
+    camera_fx: 432.61
+
+vio_recovery_controller_node:
+  ros__parameters:
+    force_filter_alpha: 0.4
 
 
 vio_recovery_fsm_node:
   ros__parameters:
-    enable_recovery: true        # If false, the FSM will ignore VIO failures and not trigger recovery
-    delay_before_drop: 1.5       # seconds to wait in STOP before dropping ground marker
-    strafe_velocity: 0.2         # m/s lateral velocity towards wall
-    strafe_timeout: 20.0         # s max time to strafe before giving up
-    swipe_length: 1.5            # m length of the swipe
-    swipe_velocity: 0.2          # m/s forward velocity during SWIPE
-    impact_force_threshold: 1.0  # N to detect wall contact
+    enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
+    trigger_on_potentially_inconsistent: false # If false, only triggers on INCONSISTENT state
+    trigger_grace_time: 5.0                    # Grace period (seconds) to ignore health status after node startup
+    delay_before_drop: 1.5                     # Wait time (seconds) in STOP state before dropping ground marker
+    strafe_velocity: 0.10                      # Lateral velocity (m/s) towards the wall
+    return_velocity: 0.15                      # Lateral velocity (m/s) when returning to center
+    return_distance: 0.50                      # Distance (m) to travel away from the wall during RETURN
+    max_strafe_distance: 5.0                   # Maximum distance (m) to strafe before aborting
+    swipe_length: 1.0                          # Length (m) of the forward swipe motion
+    swipe_velocity: 0.2                        # Forward velocity (m/s) during SWIPE
+    impact_force_threshold: 0.5                # Force threshold (N) to detect wall contact
 
 spray_heuristic_node:
   ros__parameters:
@@ -45,8 +54,11 @@ wrench_estimator_node:
     k_i_f: 10.0
     k_i_m: 20.0
     max_thrust_n: 43.8
+    max_torque_nm: 2.5
+    max_force_out: 50.0
+    max_torque_out: 5.0
 
-tactile_odometry_node:
+flight_odometry_filter_node:
   ros__parameters:
     mass: 2.23
     inertia_xx: 0.0420

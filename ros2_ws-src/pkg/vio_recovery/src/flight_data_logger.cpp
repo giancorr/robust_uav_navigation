@@ -4,14 +4,20 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <geometry_msgs/msg/wrench_stamped.hpp>
 #include <fstream>
 #include <vector>
 #include <string>
 #include <cmath>
 
+#include <geometry_msgs/msg/twist.hpp>
+
 struct OdomRecord  { double timestamp, x, y, z, roll, pitch, yaw; };
 struct LambdaRecord { double timestamp, lx, ly, lz; };
 struct HealthRecord { double timestamp; int state; }; // 0=CONSISTENT, 1=POTENTIALLY_CONSISTENT, 2=POTENTIALLY_INCONSISTENT, 3=INCONSISTENT
+struct WrenchRecord { double timestamp, fx, fy, fz, tx, ty, tz; };
+struct TwistRecord { double timestamp, vx, vy, vz, wx, wy, wz; };
+struct FsmRecord { double timestamp; int state; }; // 0=NAVIGATE, 1=STRAFE, 2=SWIPE, 3=RETURN
 
 class FlightDataLogger : public rclcpp::Node {
 public:
@@ -118,13 +124,59 @@ public:
                 health_data_.push_back(rec);
             });
 
+        // External Wrench
+        sub_wrench_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
+            "/drone/external_wrench", 10,
+            [this](const geometry_msgs::msg::WrenchStamped::SharedPtr msg) {
+                WrenchRecord rec;
+                rec.timestamp = (this->now() - start_time_).seconds();
+                rec.fx = msg->wrench.force.x;
+                rec.fy = msg->wrench.force.y;
+                rec.fz = msg->wrench.force.z;
+                rec.tx = msg->wrench.torque.x;
+                rec.ty = msg->wrench.torque.y;
+                rec.tz = msg->wrench.torque.z;
+                wrench_data_.push_back(rec);
+            });
+
+        // Teleop Velocity Command
+        sub_teleop_ = this->create_subscription<geometry_msgs::msg::Twist>(
+            "/teleop/velocity_increments", 10,
+            [this](const geometry_msgs::msg::Twist::SharedPtr msg) {
+                TwistRecord rec;
+                rec.timestamp = (this->now() - start_time_).seconds();
+                rec.vx = msg->linear.x;
+                rec.vy = msg->linear.y;
+                rec.vz = msg->linear.z;
+                rec.wx = msg->angular.x;
+                rec.wy = msg->angular.y;
+                rec.wz = msg->angular.z;
+                teleop_data_.push_back(rec);
+            });
+
+        // FSM State
+        sub_fsm_ = this->create_subscription<std_msgs::msg::String>(
+            "/fsm/current_state", 10,
+            [this](const std_msgs::msg::String::SharedPtr msg) {
+                FsmRecord rec;
+                rec.timestamp = (this->now() - start_time_).seconds();
+                if      (msg->data == "NAVIGATE") rec.state = 0;
+                else if (msg->data == "STRAFE")   rec.state = 1;
+                else if (msg->data == "SWIPE")    rec.state = 2;
+                else if (msg->data == "RETURN")   rec.state = 3;
+                else                              rec.state = -1;
+                fsm_data_.push_back(rec);
+            });
+
         px4_data_.reserve(30000);
         tactile_data_.reserve(30000);
         vio_data_.reserve(30000);
         gt_data_.reserve(30000);
         lambda_data_.reserve(30000);
         health_data_.reserve(10000);
-
+        wrench_data_.reserve(30000);
+        teleop_data_.reserve(10000);
+        fsm_data_.reserve(1000);
     }
 
     void save_data() {
@@ -157,7 +209,30 @@ public:
                 f << r.timestamp << " " << r.state << "\n";
         }
 
-        RCLCPP_INFO(this->get_logger(), "All logs saved: px4, tactile, vio, ground_truth, eigenvalues, health.");
+        {
+            std::ofstream f("log_wrench.txt");
+            f << "Time Fx Fy Fz Tx Ty Tz\n";
+            for (const auto& r : wrench_data_)
+                f << r.timestamp << " " << r.fx << " " << r.fy << " " << r.fz
+                  << " " << r.tx << " " << r.ty << " " << r.tz << "\n";
+        }
+
+        {
+            std::ofstream f("log_teleop.txt");
+            f << "Time Vx Vy Vz Wx Wy Wz\n";
+            for (const auto& r : teleop_data_)
+                f << r.timestamp << " " << r.vx << " " << r.vy << " " << r.vz
+                  << " " << r.wx << " " << r.wy << " " << r.wz << "\n";
+        }
+
+        {
+            std::ofstream f("log_fsm.txt");
+            f << "Time State\n";
+            for (const auto& r : fsm_data_)
+                f << r.timestamp << " " << r.state << "\n";
+        }
+
+        RCLCPP_INFO(this->get_logger(), "All logs saved: px4, tactile, vio, ground_truth, eigenvalues, health, wrench, teleop, fsm.");
     }
 
 private:
@@ -167,6 +242,9 @@ private:
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr         sub_gt_;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr sub_lambda_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr            sub_health_;
+    rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr sub_wrench_;
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr        sub_teleop_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr            sub_fsm_;
 
     rclcpp::Time start_time_;
 
@@ -176,6 +254,9 @@ private:
     std::vector<OdomRecord>  gt_data_;
     std::vector<LambdaRecord> lambda_data_;
     std::vector<HealthRecord> health_data_;
+    std::vector<WrenchRecord> wrench_data_;
+    std::vector<TwistRecord>  teleop_data_;
+    std::vector<FsmRecord>    fsm_data_;
 };
 
 int main(int argc, char **argv) {

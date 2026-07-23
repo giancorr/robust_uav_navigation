@@ -20,21 +20,32 @@ VioRecoveryFSM::VioRecoveryFSM()
 {
     // Parameters
     this->declare_parameter<bool>("enable_recovery",          true);
+    this->declare_parameter<bool>("trigger_on_potentially_inconsistent", false);
+    this->declare_parameter<double>("trigger_grace_time", 10.0);
     this->declare_parameter<double>("delay_before_drop",      1.5);
-    this->declare_parameter<double>("strafe_velocity",        0.20);   // m/s
-    this->declare_parameter<double>("strafe_timeout",        20.0);   // s
-    this->declare_parameter<double>("swipe_length",           1.5);   // m
+    this->declare_parameter<double>("strafe_velocity", 0.1);
+    this->declare_parameter<double>("return_velocity", 0.1);
+    this->declare_parameter<double>("return_distance", 1.0);
+    this->declare_parameter<double>("max_strafe_distance", 5.0);    // m
+    this->declare_parameter<double>("swipe_length",           1.0);   // m
     this->declare_parameter<double>("swipe_velocity",         0.20);   // m/s
-    this->declare_parameter<double>("impact_force_threshold", 0.4);   // N
+    this->declare_parameter<double>("impact_force_threshold", 0.5);   // N
 
     enable_recovery_        = this->get_parameter("enable_recovery").as_bool();
+    trigger_on_potentially_inconsistent_ = this->get_parameter("trigger_on_potentially_inconsistent").as_bool();
+    trigger_grace_time_     = this->get_parameter("trigger_grace_time").as_double();
     delay_before_drop_      = this->get_parameter("delay_before_drop").as_double();
     strafe_velocity_        = this->get_parameter("strafe_velocity").as_double();
-    strafe_timeout_         = this->get_parameter("strafe_timeout").as_double();
+    return_velocity_        = this->get_parameter("return_velocity").as_double();
+    return_distance_        = this->get_parameter("return_distance").as_double();
+    max_strafe_distance_    = this->get_parameter("max_strafe_distance").as_double();
+    strafe_timeout_         = max_strafe_distance_ / (std::abs(strafe_velocity_) > 0.01 ? std::abs(strafe_velocity_) : 0.01);
     swipe_velocity_         = this->get_parameter("swipe_velocity").as_double();
     swipe_length_           = this->get_parameter("swipe_length").as_double();
     swipe_duration_         = swipe_length_ / swipe_velocity_;
     impact_force_threshold_ = this->get_parameter("impact_force_threshold").as_double();
+
+
 
     RCLCPP_INFO(this->get_logger(), 
         "VioRecoveryFSM initialized. swipe_length=%.2f, swipe_vel=%.2f -> duration=%.2f s", 
@@ -45,8 +56,12 @@ VioRecoveryFSM::VioRecoveryFSM()
         "/vio_health_status", 10,
         std::bind(&VioRecoveryFSM::health_callback, this, std::placeholders::_1));
 
+    // Configure SensorData QoS for odometry
+    rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
+    auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
+
     sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "/px4/odometry/out", 10,
+        "/px4/odometry/out", qos,
         std::bind(&VioRecoveryFSM::odometry_callback, this, std::placeholders::_1));
 
     sub_wrench_ = this->create_subscription<geometry_msgs::msg::WrenchStamped>(
@@ -69,16 +84,21 @@ VioRecoveryFSM::VioRecoveryFSM()
     pub_drone_cmd_        = this->create_publisher<std_msgs::msg::String>("/seed_pdt_drone/command", 10);
     pub_drop_cmd_         = this->create_publisher<std_msgs::msg::Bool>("/command/drop_marker", 10);
     pub_swipe_cmd_        = this->create_publisher<std_msgs::msg::String>("/command/swipe_paint", 10);
-    pub_vel_              = this->create_publisher<geometry_msgs::msg::Twist>("/teleop/velocity_increments", 10);
+    pub_ff_cmd_vel_       = this->create_publisher<geometry_msgs::msg::Twist>("/recovery/ff_cmd_vel", 10);
+    pub_target_yaw_       = this->create_publisher<std_msgs::msg::Float64>("/recovery/target_yaw", 10);
+    pub_strafe_direction_ = this->create_publisher<std_msgs::msg::String>("/recovery/strafe_direction", 10);
     state_pub_            = this->create_publisher<std_msgs::msg::String>("/fsm/current_state", 10);
     pub_fsm_state_num_    = this->create_publisher<std_msgs::msg::Int32>("/fsm/current_state_num", 10);
     pub_goal_             = this->create_publisher<geometry_msgs::msg::PoseStamped>("/move_base_simple/goal", 10);
+    pub_teleop_active_    = this->create_publisher<std_msgs::msg::Bool>("/move_manager/teleop_active", 10);
 
     // FSM loop at 10 Hz
     timer_ = this->create_wall_timer(100ms, std::bind(&VioRecoveryFSM::fsm_loop, this));
 
     // Initialize with the node's clock so time sources match (sim vs system)
+    node_start_time_ = this->now();
     state_entry_time_ = this->now();
+    last_fsm_time_ = this->now();
 
     RCLCPP_INFO(this->get_logger(), "VIO Recovery FSM Initialized");
 }
@@ -93,8 +113,23 @@ void VioRecoveryFSM::health_callback(const std_msgs::msg::String::SharedPtr msg)
         return;
     }
 
-    if (current_state_ == DroneState::NAVIGATE &&
-        (msg->data == "POTENTIALLY_INCONSISTENT" || msg->data == "INCONSISTENT")) {
+    // Grace time check
+    auto elapsed_since_start = (this->now() - node_start_time_).seconds();
+    if (elapsed_since_start < trigger_grace_time_) {
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+            "Health status ignored during grace time (%.1f / %.1f s)",
+            elapsed_since_start, trigger_grace_time_);
+        return;
+    }
+
+    bool trigger_condition = false;
+    if (msg->data == "INCONSISTENT") {
+        trigger_condition = true;
+    } else if (msg->data == "POTENTIALLY_INCONSISTENT" && trigger_on_potentially_inconsistent_) {
+        trigger_condition = true;
+    }
+
+    if (current_state_ == DroneState::NAVIGATE && trigger_condition) {
 
         RCLCPP_WARN(this->get_logger(), "VIO INCONSISTENCY DETECTED! Entering STOP state.");
         current_state_     = DroneState::STOP;
@@ -176,29 +211,6 @@ void VioRecoveryFSM::wrench_callback(const geometry_msgs::msg::WrenchStamped::Sh
         }
     }
     
-    // Proportional force controller during SWIPE
-    if (current_state_ == DroneState::SWIPE) {
-        double lateral_force = std::sqrt(fx*fx + fy*fy);
-        
-        // Target: very light contact (0.8 N)
-        double target_force = 0.8;
-        double kp_force = 0.10; 
-        double max_vy = 0.10;   
-        
-        // Calculate force error and velocity command
-        double force_error = target_force - lateral_force;
-        double vy_cmd = kp_force * force_error;
-        vy_cmd = std::clamp(vy_cmd, -max_vy, max_vy);
-        
-        // Direction: LEFT wall -> +Y, RIGHT wall -> -Y
-        swipe_vy_body_ = (strafe_direction_ == "LEFT") ? vy_cmd : -vy_cmd;
-        
-        RCLCPP_DEBUG_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-            "[SWIPE] Force: %.2f N | target: %.2f | vy_cmd: %.3f", lateral_force, target_force, swipe_vy_body_);
-    }
-    
-    // Open-loop trajectory integrator handles yaw automatically
-    swipe_omega_z_ = 0.0;
 }
 
 void VioRecoveryFSM::heuristic_callback(const std_msgs::msg::String::SharedPtr msg) {
@@ -211,12 +223,12 @@ void VioRecoveryFSM::heuristic_callback(const std_msgs::msg::String::SharedPtr m
 
 void VioRecoveryFSM::send_velocity(double vx_body, double vy_body, double vz_body, double omega_z) {
     geometry_msgs::msg::Twist vel;
-    // Send velocity in BODY frame directly (standard ROS practice for /teleop)
+    // Send open-loop velocity (feed-forward) to the controller
     vel.linear.x = vx_body;
     vel.linear.y = vy_body;
     vel.linear.z = vz_body;
     vel.angular.z = omega_z;
-    pub_vel_->publish(vel);
+    pub_ff_cmd_vel_->publish(vel);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,7 +245,23 @@ void VioRecoveryFSM::fsm_loop() {
     state_num_msg.data = static_cast<int>(current_state_);
     pub_fsm_state_num_->publish(state_num_msg);
 
-    double elapsed = (this->now() - state_entry_time_).seconds();
+    std_msgs::msg::Float64 yaw_msg;
+    yaw_msg.data = recovery_start_yaw_;
+    pub_target_yaw_->publish(yaw_msg);
+
+    std_msgs::msg::String dir_msg;
+    dir_msg.data = strafe_direction_;
+    pub_strafe_direction_->publish(dir_msg);
+
+    auto now_fsm = this->now();
+    double elapsed = (now_fsm - state_entry_time_).seconds();
+    
+    // Calculate real dt based on timestamp to avoid rate assumptions
+    double dt_fsm = (now_fsm - last_fsm_time_).seconds();
+    last_fsm_time_ = now_fsm;
+    
+    // Guard against anomalous dt values
+    if (dt_fsm <= 0.0 || dt_fsm > 0.5) dt_fsm = 0.1;
 
     switch (current_state_) {
 
@@ -246,9 +274,13 @@ void VioRecoveryFSM::fsm_loop() {
         case DroneState::STOP: {
             if (!stop_command_sent_) {
                 // Switch move_manager to teleop mode and halt drone
-                std_msgs::msg::String teleop_msg;
-                teleop_msg.data = "teleop";
-                pub_drone_cmd_->publish(teleop_msg);
+                std_msgs::msg::String teleop_cmd;
+                teleop_cmd.data = "teleop";
+                pub_drone_cmd_->publish(teleop_cmd);
+
+                std_msgs::msg::Bool teleop_active_msg;
+                teleop_active_msg.data = true;
+                pub_teleop_active_->publish(teleop_active_msg);
 
                 send_velocity(0.0, 0.0, 0.0);
 
@@ -283,19 +315,10 @@ void VioRecoveryFSM::fsm_loop() {
         // ── STRAFE ────────────────────────────────────────────────────────────
         case DroneState::STRAFE: {
             if (!impact_detected_) {
-                // Keep drone straight (yaw = 0 or PI) while moving sideways
-                double target_yaw = (std::cos(current_yaw_) > 0) ? 0.0 : M_PI;
-                double yaw_err = current_yaw_ - target_yaw;
-                while (yaw_err > M_PI)  yaw_err -= 2.0 * M_PI;
-                while (yaw_err < -M_PI) yaw_err += 2.0 * M_PI;
-                
-                double kp_yaw = 0.8;
-                double omega = -kp_yaw * yaw_err;
-                omega = std::clamp(omega, -0.4, 0.4);
-
-                // Command lateral movement
+                // Command open-loop lateral movement. 
+                // The vio_recovery_controller handles PI yaw alignment.
                 double vy = (strafe_direction_ == "LEFT") ? strafe_velocity_ : -strafe_velocity_;
-                send_velocity(0.0, vy, 0.0, omega);
+                send_velocity(0.0, vy, 0.0, 0.0);
             } else {
                 // Impact detected: freeze lateral motion and stabilize
                 strafe_duration_actual_ = (this->now() - state_entry_time_).seconds();
@@ -319,22 +342,44 @@ void VioRecoveryFSM::fsm_loop() {
 
         // ── SETTLE ────────────────────────────────────────────────────────────
         case DroneState::SETTLE: {
-            // Wait to stabilize physical contact with the wall
+            // Wait for physical stabilization AND yaw convergence to ~0°.
+            // If yaw isn't near zero when SWIPE starts, body-frame vx will have
+            // a world-frame component pushing into the wall (vx*sin(yaw_err)).
             auto now = this->now();
             auto elapsed = (now - state_entry_time_).seconds();
 
-            if (elapsed >= 0.5) {
+            // Compute yaw error (same logic as controller)
+            double target_yaw_aligned = (std::cos(recovery_start_yaw_) > 0) ? 0.0 : M_PI;
+            double yaw_err = current_yaw_ - target_yaw_aligned;
+            while (yaw_err >  M_PI) yaw_err -= 2.0 * M_PI;
+            while (yaw_err < -M_PI) yaw_err += 2.0 * M_PI;
+            bool yaw_converged = std::abs(yaw_err) < 0.02;  // ~1 degree
+
+            if (elapsed >= 0.5 && yaw_converged) {
                 if (bad_impact_) {
                     RCLCPP_WARN(this->get_logger(), "[SETTLE] Bad impact angle → skipping SWIPE, going to RETURN");
                     current_state_    = DroneState::RETURN;
                     state_entry_time_ = this->now();
                 } else {
-                    RCLCPP_INFO(this->get_logger(), "[SETTLE] Stabilized → SWIPE");
+                    RCLCPP_INFO(this->get_logger(), "[SETTLE] Stabilized (yaw_err=%.3f rad) → SWIPE", yaw_err);
                     current_state_    = DroneState::SWIPE;
                     state_entry_time_ = this->now();
                 }
+            } else if (elapsed >= 3.0) {
+                // Timeout: yaw didn't converge, go to SWIPE anyway but warn
+                RCLCPP_WARN(this->get_logger(), "[SETTLE] Yaw didn't converge (err=%.3f rad, %.1f°). Proceeding to SWIPE.",
+                    yaw_err, yaw_err * 180.0 / M_PI);
+                if (bad_impact_) {
+                    current_state_    = DroneState::RETURN;
+                } else {
+                    current_state_    = DroneState::SWIPE;
+                }
+                state_entry_time_ = this->now();
             } else {
-                // Maintain position without pushing actively
+                // Maintain position while PI yaw (in controller) corrects orientation
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                    "[SETTLE] Waiting for yaw convergence (err=%.3f rad, %.1f°)",
+                    yaw_err, yaw_err * 180.0 / M_PI);
                 send_velocity(0.0, 0.0, 0.0, 0.0);
             }
             break;
@@ -355,17 +400,18 @@ void VioRecoveryFSM::fsm_loop() {
             auto elapsed = (now - state_entry_time_).seconds();
 
             if (elapsed < swipe_duration_) {
-                // Execute forward swipe along the wall
+                // Execute forward swipe along the wall (pure vx, no vy or yaw)
                 RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-                    "[SWIPE] t=%.2f s | cmd: [vx=%.2f, vy=%.2f, oz=0.0]",
-                    elapsed, swipe_vx_body_, swipe_vy_body_);
-                send_velocity(swipe_vx_body_, swipe_vy_body_, 0.0, 0.0);
+                    "[SWIPE] t=%.2f s | cmd: [vx=%.2f, vy=0.0, oz=0.0]",
+                    elapsed, swipe_vx_body_);
+                send_velocity(swipe_vx_body_, 0.0, 0.0, 0.0);
             } else if (elapsed < swipe_duration_ + 1.0) {
-                // Kill momentum
-                send_velocity(0.0, 0.0, 0.0, 0.0);
+                // Kill momentum smoothly with a ramp-down
+                double ramp = 1.0 - (elapsed - swipe_duration_) / 1.0;
+                send_velocity(swipe_vx_body_ * ramp, 0.0, 0.0, 0.0);
             } else if (elapsed < swipe_duration_ + 2.0) {
                 // Gently detach from wall to avoid trajectory friction during RETURN
-                double vy_away = (strafe_direction_ == "LEFT") ? -0.15 : 0.15;
+                double vy_away = (strafe_direction_ == "LEFT") ? -0.05 : 0.05;
                 RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
                     "[SWIPE] Detaching from wall (vy=%.2f)", vy_away);
                 send_velocity(0.0, vy_away, 0.0, 0.0);
@@ -374,6 +420,7 @@ void VioRecoveryFSM::fsm_loop() {
                 RCLCPP_INFO(this->get_logger(), "[SWIPE] → RETURN (corridor yaw: %.3f rad)", recovery_start_yaw_);
                 current_state_    = DroneState::RETURN;
                 state_entry_time_ = this->now();
+                return_start_y_   = current_y_;
             }
             break;
         }
@@ -381,19 +428,42 @@ void VioRecoveryFSM::fsm_loop() {
         // ── RETURN ────────────────────────────────────────────────────────────
         case DroneState::RETURN: {
             auto elapsed = (this->now() - state_entry_time_).seconds();
-            
-            static int print_counter = 0;
-            if (print_counter++ % 10 == 0) {
-                RCLCPP_INFO(this->get_logger(), "[RETURN] Open-loop reversing. t=%.2f / %.2f s", 
-                            elapsed, strafe_duration_actual_);
-            }
 
-            if (elapsed < strafe_duration_actual_) {
-                // Reverse the strafe open-loop
-                double vy = (strafe_direction_ == "LEFT") ? -strafe_velocity_ : strafe_velocity_;
+            // We want to travel return_distance_ AWAY from the wall.
+            // If strafe was LEFT, the wall is at +Y, so we must go in -Y direction.
+            // If strafe was RIGHT, the wall is at -Y, so we must go in +Y direction.
+            double target_y = return_start_y_ + ((strafe_direction_ == "LEFT") ? -return_distance_ : return_distance_);
+            
+            // Current distance from the target
+            double error_y = target_y - current_y_;
+            bool at_center = std::abs(error_y) < 0.05;  // within 5cm of target
+
+            // Timeout fallback: if odometry is drifted, don't stay here forever
+            double max_return_duration = (return_velocity_ > 0.0)
+                ? (return_distance_ / return_velocity_) + 5.0
+                : 10.0;
+
+            RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                "[RETURN] error_y=%.3f m (target: |err|<0.05) | t=%.1f/%.1f s",
+                error_y, elapsed, max_return_duration);
+
+            if (!at_center && elapsed < max_return_duration) {
+                // Move toward target Y position using closed-loop position feedback with proportional velocity
+                double dist = std::abs(error_y);
+                double vy_magnitude = std::clamp(dist * 1.5, 0.05, return_velocity_);
+                
+                // If error_y is positive (target > current), we need positive vy to go right (+Y).
+                // If error_y is negative (target < current), we need negative vy to go left (-Y).
+                double vy = (error_y > 0) ? vy_magnitude : -vy_magnitude;
+                
                 send_velocity(0.0, vy, 0.0, 0.0);
             } else {
-                // Back at the center line, reset and resume navigation
+                if (elapsed >= max_return_duration) {
+                    RCLCPP_WARN(this->get_logger(), "[RETURN] Timeout! error_y=%.3f m. Proceeding to NAVIGATE anyway.", error_y);
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "[RETURN] Reached target (error_y=%.3f m) → NAVIGATE", error_y);
+                }
+
                 if (!return_command_sent_) {
                     std_msgs::msg::String stop_msg;
                     stop_msg.data = "stop";
@@ -408,7 +478,6 @@ void VioRecoveryFSM::fsm_loop() {
                     pub_drop_cmd_->publish(reset_drop);
 
                     return_command_sent_ = true;
-                    RCLCPP_INFO(this->get_logger(), "[RETURN] Finished open-loop return! → NAVIGATE");
 
                     // Reset all recovery flags
                     direction_received_   = false;
@@ -419,7 +488,14 @@ void VioRecoveryFSM::fsm_loop() {
                     impact_detected_      = false;
                     bad_impact_           = false;
 
-                    current_state_ = DroneState::NAVIGATE;
+                    // Exit teleop mode so traj_interp can resume following path
+                    std_msgs::msg::Bool teleop_msg;
+                    teleop_msg.data = false;
+                    pub_teleop_active_->publish(teleop_msg);
+
+                    current_state_    = DroneState::NAVIGATE;
+                    state_entry_time_ = this->now();
+                    RCLCPP_INFO(this->get_logger(), "[RETURN] Finished → NAVIGATE");
                 }
             }
             break;

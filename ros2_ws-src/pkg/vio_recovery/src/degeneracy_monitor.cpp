@@ -60,9 +60,9 @@ private:
         float lambda_z = msg->data[5];
         auto now = this->now();
 
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500, 
-                             "Eigenvalues -> X: %.2f | Y: %.2f | Z: %.2f", 
-                             lambda_x, lambda_y, lambda_z);
+        // RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500, 
+        //                      "Eigenvalues -> X: %.2f | Y: %.2f | Z: %.2f", 
+        //                      lambda_x, lambda_y, lambda_z);
 
         // If eigenvalues are stagnant, no information is added, thus the drone is lost
         bool is_stagnant = (std::abs(lambda_x - last_x_) < eps_) && 
