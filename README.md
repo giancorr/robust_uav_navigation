@@ -92,7 +92,7 @@ source install/setup.bash
 ## Usage in simulation with TMUX
 ```bash
 cd ros2_ws
-tmuxp load src/pkg/babyk_drone_manager/utils/exp_simulation.yml
+tmuxp load src/pkg/babyk_drone_manager/utils/exploration.yml
 ```
 
 ## Package Documentation
