@@ -13,6 +13,8 @@ class SwipeSpawnerNode : public rclcpp::Node {
 public:
     SwipeSpawnerNode() : Node("swipe_spawner"), is_spawned_(false), current_side_("NONE"),
                          current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0) {
+        
+        world_name_ = this->declare_parameter<std::string>("gazebo_world", "leonardo_race");
 
         this->declare_parameter<double>("impact_wall_distance", 0.35);
         this->get_parameter("impact_wall_distance", impact_wall_distance_);
@@ -121,7 +123,7 @@ private:
         }
 
         // Call service
-        std::string cmd = "gz service -s /world/corridor/create --reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout 5000 --req \"sdf_filename: \\\"" + sdf_path + "\\\", name: \\\"" + std::string(model_name) + "\\\", pose: {position: {x: " + std::to_string(spawn_x) + ", y: " + std::to_string(spawn_y) + ", z: " + std::to_string(spawn_z) + "}, orientation: {x: " + std::to_string(q.x()) + ", y: " + std::to_string(q.y()) + ", z: " + std::to_string(q.z()) + ", w: " + std::to_string(q.w()) + "}}\" > /dev/null 2>&1 &";
+        std::string cmd = "gz service -s /world/" + world_name_ + "/create --reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout 5000 --req \"sdf_filename: \\\"" + sdf_path + "\\\", name: \\\"" + std::string(model_name) + "\\\", pose: {position: {x: " + std::to_string(spawn_x) + ", y: " + std::to_string(spawn_y) + ", z: " + std::to_string(spawn_z) + "}, orientation: {x: " + std::to_string(q.x()) + ", y: " + std::to_string(q.y()) + ", z: " + std::to_string(q.z()) + ", w: " + std::to_string(q.w()) + "}}\" > /dev/null 2>&1 &";
         system(cmd.c_str());
     }
 
@@ -129,6 +131,8 @@ private:
     bool is_spawned_; 
     double impact_wall_distance_;
     std::string current_side_;
+    std::string world_name_;
+    std::string model_path_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_spawn_cmd_;

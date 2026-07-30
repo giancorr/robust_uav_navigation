@@ -13,6 +13,8 @@ class DropSpawnerNode : public rclcpp::Node {
 public:
     DropSpawnerNode() : Node("drop_spawner"), is_spawned_(false),
                          current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0) {
+        
+        world_name_ = this->declare_parameter<std::string>("gazebo_world", "leonardo_race");
 
         rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
         auto qos_odom = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -118,7 +120,7 @@ private:
 
         // Call service (removed /dev/null to see errors)
         std::string cmd = 
-            "gz service -s /world/corridor/create"
+            "gz service -s /world/" + world_name_ + "/create"
             " --reqtype gz.msgs.EntityFactory"
             " --reptype gz.msgs.Boolean"
             " --timeout 5000"
@@ -140,6 +142,7 @@ private:
 
     double current_x_, current_y_, current_z_, current_yaw_;
     bool is_spawned_; 
+    std::string world_name_;
 
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr sub_odom_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_spawn_cmd_;

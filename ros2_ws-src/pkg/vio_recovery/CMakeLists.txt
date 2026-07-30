@@ -16,6 +16,9 @@ find_package(sensor_msgs REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(octomap_msgs REQUIRED)
+find_package(octomap REQUIRED)
+find_package(tf2 REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/SurfaceInfo.msg"
@@ -35,6 +38,9 @@ ament_target_dependencies(degeneracy_monitor rclcpp std_msgs)
 add_executable(vio_recovery_fsm src/vio_recovery_fsm.cpp)
 ament_target_dependencies(vio_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
+add_executable(sewer_recovery_fsm src/sewer_recovery_fsm.cpp)
+ament_target_dependencies(sewer_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs tf2)
+
 add_executable(vio_recovery_controller src/vio_recovery_controller.cpp)
 ament_target_dependencies(vio_recovery_controller rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
@@ -52,12 +58,17 @@ ament_target_dependencies(swipe_spawner rclcpp std_msgs nav_msgs geometry_msgs p
 add_executable(drop_spawner src/drop_spawner.cpp)
 ament_target_dependencies(drop_spawner rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
+add_executable(box_dropper_node src/box_dropper_node.cpp)
+ament_target_dependencies(box_dropper_node rclcpp std_msgs px4_msgs)
+
+
 add_executable(feature_counter_node src/feature_counter_node.cpp)
 ament_target_dependencies(feature_counter_node rclcpp sensor_msgs std_msgs cv_bridge OpenCV)
 target_link_libraries(feature_counter_node ${OpenCV_LIBRARIES})
 
 add_executable(flight_data_logger src/flight_data_logger.cpp)
-ament_target_dependencies(flight_data_logger rclcpp std_msgs nav_msgs px4_msgs)
+ament_target_dependencies(flight_data_logger rclcpp std_msgs nav_msgs px4_msgs geometry_msgs octomap_msgs)
+target_link_libraries(flight_data_logger octomap)
 
 
 add_executable(wrench_estimator_node src/external_wrench_estimator.cpp)
@@ -82,6 +93,7 @@ ament_target_dependencies(spray_heuristic_node
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 
 target_link_libraries(vio_recovery_fsm ${cpp_typesupport_target})
+target_link_libraries(sewer_recovery_fsm ${cpp_typesupport_target})
 target_link_libraries(swipe_spawner ${cpp_typesupport_target})
 target_link_libraries(drop_spawner ${cpp_typesupport_target})
 target_link_libraries(feature_counter_node ${cpp_typesupport_target})
@@ -90,11 +102,13 @@ target_link_libraries(spray_heuristic_node ${cpp_typesupport_target})
 install(TARGETS
   degeneracy_monitor
   vio_recovery_fsm
+  sewer_recovery_fsm
   vio_recovery_controller
   flight_odometry_filter
 
   swipe_spawner
   drop_spawner
+  box_dropper_node
   feature_counter_node
   flight_data_logger
   wrench_estimator_node

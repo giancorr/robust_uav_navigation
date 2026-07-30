@@ -63,6 +63,11 @@ private:
     double current_yaw_;
     bool odometry_received_;
 
+    // FSM arming state (only arm after VIO has been CONSISTENT for N consecutive messages)
+    bool armed_;
+    int consecutive_consistent_count_;
+    int min_consistent_to_arm_;
+    
     // Trajectory interpolator's internal commanded yaw (for body-frame sync)
     double interp_cmd_yaw_{0.0};
     bool interp_cmd_yaw_received_{false};
@@ -82,6 +87,8 @@ private:
 
     // Configurable Parameters
     bool enable_recovery_;          // If false, ignore VIO failures
+    bool enable_lateral_;           // If false, do not strafe and swipe wall
+    bool enable_bottom_;            // If false, do not drop ground marker
     bool trigger_on_potentially_inconsistent_; // If true, trigger on POTENTIALLY_INCONSISTENT
     double delay_before_drop_;      // wait before dropping ground marker (STOP state)
     double strafe_velocity_;        // m/s lateral velocity towards wall
@@ -93,7 +100,6 @@ private:
     double swipe_duration_;         // seconds to push forward during swipe
     double swipe_velocity_;         // m/s forward velocity during swipe
     double impact_force_threshold_; // N to detect wall contact
-    double trigger_grace_time_;     // seconds to wait before allowing triggers
     rclcpp::Time node_start_time_;  // Time when the node started
     rclcpp::Time last_fsm_time_;    // To calculate real dt in fsm_loop
 

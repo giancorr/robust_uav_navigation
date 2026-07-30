@@ -1,0 +1,7 @@
+sewer_recovery_fsm:
+  ros__parameters:
+    enable_recovery: true
+    trigger_on_potentially_inconsistent: true
+    hover_timeout: 15.0
+    ascend_velocity: 0.5
+    min_consistent_to_arm: 10

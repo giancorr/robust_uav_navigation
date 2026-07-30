@@ -6,7 +6,7 @@ degeneracy_monitor_node:
     ky2: 750.0
     kz1: 300.0
     kz2: 400.0
-    delta_t: 0.1
+    delta_t: 0.05
     stagnation_epsilon: 1e-4
     max_stagnation_counts: 5
 
@@ -28,8 +28,10 @@ vio_recovery_controller_node:
 vio_recovery_fsm_node:
   ros__parameters:
     enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
-    trigger_on_potentially_inconsistent: false # If false, only triggers on INCONSISTENT state
-    trigger_grace_time: 5.0                    # Grace period (seconds) to ignore health status after node startup
+    enable_lateral: false                       # If false, skips lateral wall swipe
+    enable_bottom: true                        # If false, skips dropping marker on the ground
+    trigger_on_potentially_inconsistent: true # If false, only triggers on INCONSISTENT state
+    min_consistent_to_arm: 10                  # Number of consecutive CONSISTENT messages before FSM arms
     delay_before_drop: 1.5                     # Wait time (seconds) in STOP state before dropping ground marker
     strafe_velocity: 0.10                      # Lateral velocity (m/s) towards the wall
     return_velocity: 0.15                      # Lateral velocity (m/s) when returning to center

@@ -11,17 +11,22 @@ VioRecoveryFSM::VioRecoveryFSM()
       swipe_command_sent_(false),
       return_command_sent_(false),
       impact_detected_(false),
-      recovery_start_x_(0.0), recovery_start_y_(0.0), recovery_start_z_(0.0),
+      recovery_start_x_(0.0), recovery_start_y_(0.0), recovery_start_z_(0.0), recovery_start_yaw_(0.0),
       current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0),
       odometry_received_(false),
+      armed_(false),
+      consecutive_consistent_count_(0),
       strafe_direction_("RIGHT"),
       direction_received_(false),
+      return_start_y_(0.0),
       swipe_vx_body_(0.0), swipe_vy_body_(0.0)
 {
     // Parameters
     this->declare_parameter<bool>("enable_recovery",          true);
+    this->declare_parameter<bool>("enable_lateral",           true);
+    this->declare_parameter<bool>("enable_bottom",            true);
     this->declare_parameter<bool>("trigger_on_potentially_inconsistent", false);
-    this->declare_parameter<double>("trigger_grace_time", 10.0);
+    this->declare_parameter<int>("min_consistent_to_arm",         10);
     this->declare_parameter<double>("delay_before_drop",      1.5);
     this->declare_parameter<double>("strafe_velocity", 0.1);
     this->declare_parameter<double>("return_velocity", 0.1);
@@ -32,8 +37,10 @@ VioRecoveryFSM::VioRecoveryFSM()
     this->declare_parameter<double>("impact_force_threshold", 0.5);   // N
 
     enable_recovery_        = this->get_parameter("enable_recovery").as_bool();
+    enable_lateral_         = this->get_parameter("enable_lateral").as_bool();
+    enable_bottom_          = this->get_parameter("enable_bottom").as_bool();
     trigger_on_potentially_inconsistent_ = this->get_parameter("trigger_on_potentially_inconsistent").as_bool();
-    trigger_grace_time_     = this->get_parameter("trigger_grace_time").as_double();
+    min_consistent_to_arm_     = this->get_parameter("min_consistent_to_arm").as_int();
     delay_before_drop_      = this->get_parameter("delay_before_drop").as_double();
     strafe_velocity_        = this->get_parameter("strafe_velocity").as_double();
     return_velocity_        = this->get_parameter("return_velocity").as_double();
@@ -113,20 +120,42 @@ void VioRecoveryFSM::health_callback(const std_msgs::msg::String::SharedPtr msg)
         return;
     }
 
-    // Grace time check
-    auto elapsed_since_start = (this->now() - node_start_time_).seconds();
-    if (elapsed_since_start < trigger_grace_time_) {
+    // Arm check: only trigger recovery if VIO has first been stable for N consecutive CONSISTENT messages
+    if (msg->data == "CONSISTENT" || msg->data == "POTENTIALLY_INCONSISTENT" ||
+        msg->data == "POTENTIALLY_CONSISTENT") {
+        if (msg->data == "CONSISTENT") {
+            consecutive_consistent_count_++;
+        } else if (msg->data == "POTENTIALLY_CONSISTENT") {
+            // Recovering from INCONSISTENT: count very conservatively (no decrement, no increment)
+            // Just hold and wait for full CONSISTENT before arming again
+        } else {
+            // POTENTIALLY_INCONSISTENT: slightly degrades confidence but doesn't reset it
+            consecutive_consistent_count_ = std::max(0, consecutive_consistent_count_ - 1);
+        }
+        if (!armed_ && consecutive_consistent_count_ >= min_consistent_to_arm_) {
+            armed_ = true;
+            RCLCPP_INFO(this->get_logger(), "[HEALTH] FSM ARMED after %d consecutive CONSISTENT messages.", consecutive_consistent_count_);
+        }
+        return;
+    }
+
+    // Not armed yet — ignore inconsistency
+    if (!armed_) {
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
-            "Health status ignored during grace time (%.1f / %.1f s)",
-            elapsed_since_start, trigger_grace_time_);
+            "[HEALTH] Ignoring INCONSISTENT: FSM not yet armed (consistent count: %d/%d).",
+            consecutive_consistent_count_, min_consistent_to_arm_);
         return;
     }
 
     bool trigger_condition = false;
     if (msg->data == "INCONSISTENT") {
+        // Reset confidence so FSM must re-arm before triggering again
+        consecutive_consistent_count_ = 0;
+        armed_ = false;
         trigger_condition = true;
-    } else if (msg->data == "POTENTIALLY_INCONSISTENT" && trigger_on_potentially_inconsistent_) {
-        trigger_condition = true;
+    } else {
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+            "[HEALTH] Unknown health message: '%s'", msg->data.c_str());
     }
 
     if (current_state_ == DroneState::NAVIGATE && trigger_condition) {
@@ -290,24 +319,33 @@ void VioRecoveryFSM::fsm_loop() {
 
             // Drop ground marker after drone has settled
             if (stop_command_sent_ && !drop_command_sent_ && elapsed >= delay_before_drop_) {
-                std_msgs::msg::Bool drop_msg;
-                drop_msg.data = true;
-                pub_drop_cmd_->publish(drop_msg);
+                if (enable_bottom_) {
+                    std_msgs::msg::Bool drop_msg;
+                    drop_msg.data = true;
+                    pub_drop_cmd_->publish(drop_msg);
+                    RCLCPP_INFO(this->get_logger(), "[STOP] Dropped ground marker.");
+                } else {
+                    RCLCPP_INFO(this->get_logger(), "[STOP] Ground marker skipped (enable_bottom=false).");
+                }
                 drop_command_sent_ = true;
-                RCLCPP_INFO(this->get_logger(), "[STOP] Dropped ground marker.");
             }
 
-            // Transition to STRAFE once marker is down and heuristic provides direction
-            if (drop_command_sent_ && direction_received_) {
-                RCLCPP_INFO(this->get_logger(), "[STOP] → STRAFE (%s)", strafe_direction_.c_str());
-                current_state_    = DroneState::STRAFE;
-                state_entry_time_ = this->now();
-            }
-
-            // Fallback: Default to RIGHT if heuristic times out
-            if (drop_command_sent_ && !direction_received_ && elapsed >= (delay_before_drop_ + 5.0)) {
-                RCLCPP_WARN(this->get_logger(), "[STOP] No heuristic direction received. Defaulting to RIGHT.");
-                direction_received_ = true;
+            // Transition to STRAFE or RETURN once marker logic is handled
+            if (drop_command_sent_) {
+                if (!enable_lateral_) {
+                    RCLCPP_INFO(this->get_logger(), "[STOP] → RETURN (enable_lateral=false). Skipping wall swipe.");
+                    current_state_ = DroneState::RETURN;
+                    state_entry_time_ = this->now();
+                    return_start_y_ = odometry_received_ ? current_y_ : recovery_start_y_;
+                    interp_cmd_yaw_received_ = false;
+                } else if (direction_received_) {
+                    RCLCPP_INFO(this->get_logger(), "[STOP] → STRAFE (%s)", strafe_direction_.c_str());
+                    current_state_    = DroneState::STRAFE;
+                    state_entry_time_ = this->now();
+                } else if (elapsed >= (delay_before_drop_ + 5.0)) {
+                    RCLCPP_WARN(this->get_logger(), "[STOP] No heuristic direction received. Defaulting to RIGHT.");
+                    direction_received_ = true;
+                }
             }
             break;
         }
@@ -315,8 +353,8 @@ void VioRecoveryFSM::fsm_loop() {
         // ── STRAFE ────────────────────────────────────────────────────────────
         case DroneState::STRAFE: {
             if (!impact_detected_) {
-                // Command open-loop lateral movement. 
-                // The vio_recovery_controller handles PI yaw alignment.
+                // Command open-loop lateral movement.
+                // The vio_recovery_controller handles PI yaw alignment in parallel.
                 double vy = (strafe_direction_ == "LEFT") ? strafe_velocity_ : -strafe_velocity_;
                 send_velocity(0.0, vy, 0.0, 0.0);
             } else {
@@ -336,6 +374,7 @@ void VioRecoveryFSM::fsm_loop() {
                 send_velocity(0.0, 0.0, 0.0, 0.0);
                 current_state_    = DroneState::RETURN;
                 state_entry_time_ = this->now();
+                return_start_y_   = current_y_;
             }
             break;
         }
@@ -360,6 +399,7 @@ void VioRecoveryFSM::fsm_loop() {
                     RCLCPP_WARN(this->get_logger(), "[SETTLE] Bad impact angle → skipping SWIPE, going to RETURN");
                     current_state_    = DroneState::RETURN;
                     state_entry_time_ = this->now();
+                    return_start_y_   = current_y_;
                 } else {
                     RCLCPP_INFO(this->get_logger(), "[SETTLE] Stabilized (yaw_err=%.3f rad) → SWIPE", yaw_err);
                     current_state_    = DroneState::SWIPE;
@@ -371,6 +411,7 @@ void VioRecoveryFSM::fsm_loop() {
                     yaw_err, yaw_err * 180.0 / M_PI);
                 if (bad_impact_) {
                     current_state_    = DroneState::RETURN;
+                    return_start_y_   = current_y_;
                 } else {
                     current_state_    = DroneState::SWIPE;
                 }
@@ -429,10 +470,16 @@ void VioRecoveryFSM::fsm_loop() {
         case DroneState::RETURN: {
             auto elapsed = (this->now() - state_entry_time_).seconds();
 
-            // We want to travel return_distance_ AWAY from the wall.
-            // If strafe was LEFT, the wall is at +Y, so we must go in -Y direction.
-            // If strafe was RIGHT, the wall is at -Y, so we must go in +Y direction.
-            double target_y = return_start_y_ + ((strafe_direction_ == "LEFT") ? -return_distance_ : return_distance_);
+            double target_y;
+            if (!enable_lateral_) {
+                // We never went to the wall, so just stay exactly where we started the return phase
+                target_y = return_start_y_;
+            } else {
+                // We want to travel return_distance_ AWAY from the wall.
+                // If strafe was LEFT, the wall is at +Y, so we must go in -Y direction.
+                // If strafe was RIGHT, the wall is at -Y, so we must go in +Y direction.
+                target_y = return_start_y_ + ((strafe_direction_ == "LEFT") ? -return_distance_ : return_distance_);
+            }
             
             // Current distance from the target
             double error_y = target_y - current_y_;

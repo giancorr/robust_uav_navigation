@@ -9,8 +9,10 @@
 #include <vector>
 #include <string>
 #include <cmath>
-
 #include <geometry_msgs/msg/twist.hpp>
+#include <octomap_msgs/msg/octomap.hpp>
+#include <octomap_msgs/conversions.h>
+#include <octomap/OcTree.h>
 
 struct OdomRecord  { double timestamp, x, y, z, roll, pitch, yaw; };
 struct LambdaRecord { double timestamp, lx, ly, lz; };
@@ -177,6 +179,13 @@ public:
         wrench_data_.reserve(30000);
         teleop_data_.reserve(10000);
         fsm_data_.reserve(1000);
+
+        // OctoMap: subscribe and store the latest received message
+        sub_octomap_ = this->create_subscription<octomap_msgs::msg::Octomap>(
+            "/octomap_binary", rclcpp::QoS(1).transient_local(),
+            [this](const octomap_msgs::msg::Octomap::SharedPtr msg) {
+                latest_octomap_ = msg;
+            });
     }
 
     void save_data() {
@@ -233,6 +242,49 @@ public:
         }
 
         RCLCPP_INFO(this->get_logger(), "All logs saved: px4, tactile, vio, ground_truth, eigenvalues, health, wrench, teleop, fsm.");
+
+        // Save OctoMap as binary .bt file AND as text voxel list for Python analysis
+        if (latest_octomap_) {
+            octomap::AbstractOcTree* abstract_tree =
+                octomap_msgs::msgToMap(*latest_octomap_);
+            if (abstract_tree) {
+                octomap::OcTree* tree =
+                    dynamic_cast<octomap::OcTree*>(abstract_tree);
+                if (tree) {
+                    // 1. Binary .bt (for visualization with octovis)
+                    tree->writeBinary("log_octomap.bt");
+                    RCLCPP_INFO(this->get_logger(),
+                        "OctoMap saved: log_octomap.bt (%zu leaf nodes, res=%.3f m)",
+                        tree->getNumLeafNodes(), tree->getResolution());
+
+                    // 2. Text voxel list (for Python metrics: compute_metrics.py)
+                    std::ofstream vox_f("log_octomap_voxels.txt");
+                    vox_f << "# Occupied voxel centers (X Y Z) from vio_mapping\n";
+                    vox_f << "# resolution=" << tree->getResolution() << " m\n";
+                    size_t n_occupied = 0;
+                    for (auto it = tree->begin_leafs(); it != tree->end_leafs(); ++it) {
+                        if (tree->isNodeOccupied(*it)) {
+                            vox_f << it.getX() << " " << it.getY() << " "
+                                  << it.getZ() << "\n";
+                            ++n_occupied;
+                        }
+                    }
+                    RCLCPP_INFO(this->get_logger(),
+                        "OctoMap voxels saved: log_octomap_voxels.txt (%zu occupied voxels)",
+                        n_occupied);
+                } else {
+                    RCLCPP_WARN(this->get_logger(),
+                        "OctoMap type is not OcTree — cannot save as .bt");
+                }
+                delete abstract_tree;
+            } else {
+                RCLCPP_WARN(this->get_logger(),
+                    "Failed to deserialize OctoMap message.");
+            }
+        } else {
+            RCLCPP_WARN(this->get_logger(),
+                "No OctoMap received during this session — log_octomap.bt NOT saved.");
+        }
     }
 
 private:
@@ -245,6 +297,7 @@ private:
     rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr sub_wrench_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr        sub_teleop_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr            sub_fsm_;
+    rclcpp::Subscription<octomap_msgs::msg::Octomap>::SharedPtr      sub_octomap_;
 
     rclcpp::Time start_time_;
 
@@ -257,6 +310,7 @@ private:
     std::vector<WrenchRecord> wrench_data_;
     std::vector<TwistRecord>  teleop_data_;
     std::vector<FsmRecord>    fsm_data_;
+    octomap_msgs::msg::Octomap::SharedPtr latest_octomap_;
 };
 
 int main(int argc, char **argv) {
