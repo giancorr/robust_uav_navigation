@@ -179,14 +179,14 @@ private:
                     
                     if (std::abs(a) > std::abs(b)) {
                         for (double y = min_pt.y; y <= max_pt.y; y += step) {
-                            for (double z = min_pt.z; z <= max_pt.z + 1.0; z += step) {
+                            for (double z = min_pt.z; z <= max_pt.z; z += step) {
                                 double x = -(b * y + c * z + d) / a;
                                 output_cloud->points.push_back(pcl::PointXYZ(x, y, z));
                             }
                         }
                     } else {
                         for (double x = min_pt.x; x <= max_pt.x; x += step) {
-                            for (double z = min_pt.z; z <= max_pt.z + 1.0; z += step) {
+                            for (double z = min_pt.z; z <= max_pt.z; z += step) {
                                 double y = -(a * x + c * z + d) / b;
                                 output_cloud->points.push_back(pcl::PointXYZ(x, y, z));
                             }

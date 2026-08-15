@@ -1,7 +1,18 @@
 sewer_recovery_fsm:
   ros__parameters:
-    enable_recovery: true
-    trigger_on_potentially_inconsistent: true
+    # DISABLED during approach phase.
+    # The desired operational logic is:
+    #   takeoff → sewer_entry (direct, no recovery) → hover → explore downward (recovery ON)
+    #
+    # With enable_recovery: false the FSM does nothing — teleop_active is never set
+    # to true and no STOP/HOVER/ASCEND commands are ever issued.  This prevents the
+    # FSM from interfering during the GOTO_ENTRY phase.
+    #
+    # TODO: re-enable (set true) and coordinate with the autonomous node so that
+    # recovery only activates once the drone enters EXPLORING phase inside the sewer.
+    enable_recovery: false
+
+    trigger_on_potentially_inconsistent: false
     hover_timeout: 15.0
     ascend_velocity: 0.5
-    min_consistent_to_arm: 10
+    min_consistent_to_arm: 30

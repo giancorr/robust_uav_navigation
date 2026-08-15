@@ -80,9 +80,27 @@ public:
                 vio_data_.push_back(rec);
             });
 
-        // Gazebo Ground Truth
+        // Gazebo Ground Truth (Corridor)
         sub_gt_ = this->create_subscription<nav_msgs::msg::Odometry>(
             "/model/baby_k_0/odometry", qos_px4,
+            [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
+                OdomRecord rec;
+                rec.timestamp = (this->now() - start_time_).seconds();
+                rec.x = msg->pose.pose.position.x;
+                rec.y = msg->pose.pose.position.y;
+                rec.z = msg->pose.pose.position.z;
+                double qw = msg->pose.pose.orientation.w, qx = msg->pose.pose.orientation.x;
+                double qy = msg->pose.pose.orientation.y, qz = msg->pose.pose.orientation.z;
+                rec.roll  = std::atan2(2.0*(qw*qx + qy*qz), 1.0 - 2.0*(qx*qx + qy*qy));
+                double sinp = 2.0*(qw*qy - qz*qx);
+                rec.pitch = (std::abs(sinp) >= 1.0) ? std::copysign(M_PI/2.0, sinp) : std::asin(sinp);
+                rec.yaw   = std::atan2(2.0*(qw*qz + qx*qy), 1.0 - 2.0*(qy*qy + qz*qz));
+                gt_data_.push_back(rec);
+            });
+
+        // Gazebo Ground Truth (Sewer)
+        sub_gt_sewer_ = this->create_subscription<nav_msgs::msg::Odometry>(
+            "/model/babyk_sewer_0/odometry", qos_px4,
             [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
                 OdomRecord rec;
                 rec.timestamp = (this->now() - start_time_).seconds();
@@ -186,6 +204,11 @@ public:
             [this](const octomap_msgs::msg::Octomap::SharedPtr msg) {
                 latest_octomap_ = msg;
             });
+
+        // Register shutdown callback to ensure data is saved when Ctrl+C is pressed
+        rclcpp::on_shutdown([this]() {
+            this->save_data();
+        });
     }
 
     void save_data() {
@@ -292,6 +315,7 @@ private:
     rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr sub_tactile_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr         sub_vio_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr         sub_gt_;
+    rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr         sub_gt_sewer_;
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr sub_lambda_;
     rclcpp::Subscription<std_msgs::msg::String>::SharedPtr            sub_health_;
     rclcpp::Subscription<geometry_msgs::msg::WrenchStamped>::SharedPtr sub_wrench_;
@@ -317,7 +341,7 @@ int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<FlightDataLogger>();
     rclcpp::spin(node);
-    node->save_data();
+    // save_data() is now handled by rclcpp::on_shutdown callback
     rclcpp::shutdown();
     return 0;
 }

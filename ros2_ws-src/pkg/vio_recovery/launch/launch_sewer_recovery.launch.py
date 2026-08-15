@@ -7,7 +7,7 @@ def generate_launch_description():
     config_file = '/root/ros2_ws/src/pkg/vio_recovery/config/params_sewer.yaml'
 
     pkg_path = os.path.expanduser('~/ros2_ws/src/pkg/vio_recovery')
-    log_path = os.path.join(pkg_path, 'flight_logs', 'sewer')
+    log_path = os.path.join(pkg_path, 'flight_logs')
 
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -42,6 +42,9 @@ def generate_launch_description():
             parameters=[config_file]
         ),
 
+        # flight_odometry_filter: sole publisher on /fmu/in/vehicle_visual_odometry.
+        # In simulation, px4_tf_pub runs with relay_odometry:=false (set in sewer_exploration.yml)
+        # so this node is the only one feeding VIO/odometry to PX4 EKF2.
         Node(
             package='vio_recovery',
             executable='flight_odometry_filter',
