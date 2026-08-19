@@ -45,15 +45,25 @@ public:
     ovde_ = std::make_unique<OVDE>(ovde_params_);
     dbof_ = std::make_unique<DBOF>(dbof_params_);
 
-    // --- T_imu_cam per cam0 (baby_k) ---
+    // --- T_imu_cam per cam0 (sewer camera_down) come FRONT ---
     T_imu_cam_front_ = Eigen::Isometry3d::Identity();
-    Eigen::Matrix3d R_ic;
-    R_ic <<  0.0,  0.0,  1.0,
-            -1.0,  0.0,  0.0,
-             0.0, -1.0,  0.0;
-    Eigen::Vector3d t_ic(0.21233, -0.03000, -0.01122);
-    T_imu_cam_front_.linear() = R_ic;
-    T_imu_cam_front_.translation() = t_ic;
+    Eigen::Matrix3d R_ic_front;
+    R_ic_front <<  0.0, -1.0,  0.0,
+                  -1.0,  0.0,  0.0,
+                   0.0,  0.0, -1.0;
+    Eigen::Vector3d t_ic_front(0.20, 0.0, -0.08);
+    T_imu_cam_front_.linear() = R_ic_front;
+    T_imu_cam_front_.translation() = t_ic_front;
+
+    // --- T_imu_cam per cam1 (sewer camera_up) come REAR ---
+    T_imu_cam_rear_ = Eigen::Isometry3d::Identity();
+    Eigen::Matrix3d R_ic_rear;
+    R_ic_rear <<  0.0,      0.5,      0.86603,
+                 -1.0,      0.0,      0.0,
+                  0.0,     -0.86603,  0.5;
+    Eigen::Vector3d t_ic_rear(0.20, 0.0, -0.01);
+    T_imu_cam_rear_.linear() = R_ic_rear;
+    T_imu_cam_rear_.translation() = t_ic_rear;
 
     world_frame_ = declare_parameter("world_frame", std::string("global"));
 
@@ -97,15 +107,21 @@ private:
     T_world_imu.translate(p_world_imu);
     T_world_imu.rotate(q_world_imu);
 
-    // T_world_cam = T_world_imu * T_imu_cam
-    Eigen::Isometry3d T_world_cam = T_world_imu * T_imu_cam_front_;
+    Eigen::Isometry3d T_world_cam_front = T_world_imu * T_imu_cam_front_;
+    CameraPose cp_front;
+    cp_front.position = T_world_cam_front.translation();
+    cp_front.orientation = Eigen::Quaterniond(T_world_cam_front.rotation());
+    cp_front.id = CameraId::FRONT;
+    cp_front.stamp = msg->header.stamp;
+    pose_front_ = cp_front;
 
-    CameraPose cp;
-    cp.position = T_world_cam.translation();
-    cp.orientation = Eigen::Quaterniond(T_world_cam.rotation());
-    cp.id = CameraId::FRONT;
-    cp.stamp = msg->header.stamp;
-    pose_front_ = cp;
+    Eigen::Isometry3d T_world_cam_rear = T_world_imu * T_imu_cam_rear_;
+    CameraPose cp_rear;
+    cp_rear.position = T_world_cam_rear.translation();
+    cp_rear.orientation = Eigen::Quaterniond(T_world_cam_rear.rotation());
+    cp_rear.id = CameraId::REAR;
+    cp_rear.stamp = msg->header.stamp;
+    pose_rear_ = cp_rear;
   }
 
   // -----------------------------------------------------------------
@@ -141,8 +157,9 @@ private:
     }
 
     if (!observations.empty()) {
-      // Tutti i landmark sono trattati come "front" (unica istanza OpenVINS)
+      // Inseriamo in entrambe: DelaunayMesh filtrerà in base al FOV
       fusion_.ingestWorldFrame(observations, CameraId::FRONT);
+      fusion_.ingestWorldFrame(observations, CameraId::REAR);
     }
   }
 
@@ -150,7 +167,7 @@ private:
   // Pipeline completa (Step 1→9)
   // -----------------------------------------------------------------
   void pipelineStep() {
-    if (!pose_front_) return;
+    if (!pose_front_ || !pose_rear_) return;
 
     // Housekeeping: rimuovi landmark stantii
     fusion_.pruneStale(now(), /*max_age_seconds=*/10.0);
@@ -161,14 +178,15 @@ private:
         return;
     }
 
-    // Step 2: mesh sparsa (solo front, rear vuota)
+    // Step 2: mesh sparsa per entrambe le camere
     SparseMesh mesh_front = DelaunayMesh::build(
         landmarks, *pose_front_, intrinsics_front_, CameraId::FRONT);
-    SparseMesh mesh_rear; // vuota: non abbiamo una posa rear separata
+    SparseMesh mesh_rear = DelaunayMesh::build(
+        landmarks, *pose_rear_, intrinsics_rear_, CameraId::REAR);
 
     // Step 3: poliedro di spazio libero
     FreeSpacePolyhedron poly = FreePolyhedronBuilder::build(
-        mesh_front, mesh_rear, pose_front_->position, pose_front_->position);
+        mesh_front, mesh_rear, pose_front_->position, pose_rear_->position);
 
     // Step 4: OVDE — disabilitato (direction_history vuoti)
     std::vector<DirectionHistoryEntry> direction_history_front;
@@ -176,6 +194,8 @@ private:
 
     std::vector<VirtualPoint> virtual_front =
         ovde_->generate(poly, pose_front_->position, CameraId::FRONT, direction_history_front);
+    std::vector<VirtualPoint> virtual_rear =
+        ovde_->generate(poly, pose_rear_->position, CameraId::REAR, direction_history_rear);
 
     // Step 5: DBOF
     LandmarkMap filtered = landmarks;
@@ -186,6 +206,7 @@ private:
         FreePolyhedronBuilder::sampleFreeSpace(poly, /*samples_per_face=*/5);
 
     for (const auto & vp : virtual_front) free_samples.push_back(vp.position_world);
+    for (const auto & vp : virtual_rear) free_samples.push_back(vp.position_world);
 
     std::vector<Eigen::Vector3d> occupied_points;
     occupied_points.reserve(filtered.size());
@@ -211,7 +232,9 @@ private:
   double landmark_cov_scalar_;
 
   std::optional<CameraPose> pose_front_;
+  std::optional<CameraPose> pose_rear_;
   Eigen::Isometry3d T_imu_cam_front_;
+  Eigen::Isometry3d T_imu_cam_rear_;
   std::string world_frame_;
 
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
