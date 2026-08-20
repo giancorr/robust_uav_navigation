@@ -67,3 +67,4 @@ __pycache__/
 # Config backups
 *.backup
 *.old
+ros2_ws-src/pkg/vio_recovery/flight_logs/log_octomap.bt
