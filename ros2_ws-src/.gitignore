@@ -1,12 +1,69 @@
-# Cartelle generate dalla build di ROS (colcon / catkin)
-build/
-install/
-log/
+# PX4 related directories - exclude completely
+PX4-Autopilot/
+PX4_neabotics/
+PX4_Neabotics_v1.16/
+**/build/px4_sitl_default/
+**/rootfs/
+sitl_ws-src/
+px4_ws-src/
+run_sitl_cnt.sh
+run_px4_cnt.sh
+run_px4_cnt_backup.sh
+utils_ws-src/
+run_utils_cnt.sh
+docker/build_with_updates.sh
 
-# (Opzionale) Ignora file di configurazione degli editor e file temporanei di sistema
+# Exclude specific packages from ros2_ws-src/pkg/
+ros2_ws-src/pkg/drone_planner2/
+ros2_ws-src/pkg/ldc_utils/
+ros2_ws-src/pkg/rosbag_recorded/
+
+# Core dumps and debug files
+core
+core.*
+*.core
+vgcore.*
+**/core
+**/core.*
+**/*.core
+**/vgcore.*
+
+# Gazebo and simulation files
+.gazebo/
+*.log
+
+# IDE files
 .vscode/
+**/.vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Docker build cache
+docker/.docker_cache/
+docker/px4_humble_harmonic_dockerfile.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# ROS bags
+*.bag
+*.db3
+*.db3-shm
+*.db3-wal
+
+# Config backups
+*.backup
+*.old

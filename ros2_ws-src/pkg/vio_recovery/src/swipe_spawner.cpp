@@ -11,19 +11,24 @@
 
 class SwipeSpawnerNode : public rclcpp::Node {
 public:
-    SwipeSpawnerNode() : Node("swipe_spawner"), is_spawned_(false), current_side_("NONE"),
+    SwipeSpawnerNode() : Node("swipe_spawner"), current_side_("NONE"),
                          current_x_(0.0), current_y_(0.0), current_z_(0.0), current_yaw_(0.0) {
         
-        world_name_ = this->declare_parameter<std::string>("gazebo_world", "leonardo_race");
+        this->declare_parameter<std::string>("gazebo_world", "sewer");
+        this->get_parameter("gazebo_world", world_name_);
 
         this->declare_parameter<double>("impact_wall_distance", 0.35);
         this->get_parameter("impact_wall_distance", impact_wall_distance_);
+
+        this->declare_parameter<std::string>("odom_topic", "/px4/odometry/out");
+        std::string odom_topic;
+        this->get_parameter("odom_topic", odom_topic);
 
         rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
         auto qos_odom = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/model/baby_k_0/odometry", qos_odom,
+            odom_topic, qos_odom,
             [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
 
                 current_x_ = msg->pose.pose.position.x;
@@ -44,14 +49,9 @@ public:
         sub_spawn_cmd_ = this->create_subscription<std_msgs::msg::String>(
             "/command/swipe_paint", 10, 
             [this](const std_msgs::msg::String::SharedPtr msg) {
-                if (msg->data == "LEFT" || msg->data == "RIGHT") {
-                    if (!is_spawned_) {
-                        current_side_ = msg->data;
-                        spawn_paint_stroke();
-                        is_spawned_ = true;
-                    }
-                } else if (msg->data == "STOP" && is_spawned_) {
-                    is_spawned_ = false;
+                if (msg->data == "LEFT" || msg->data == "RIGHT" || msg->data == "FRONT") {
+                    current_side_ = msg->data;
+                    spawn_paint_stroke();
                 }
             });
 
@@ -62,23 +62,34 @@ public:
 
 private:
     void spawn_paint_stroke() {
-        double swipe_length = 1.0; 
-        double side_sign = (current_side_ == "LEFT") ? 1.0 : -1.0;
+        double spawn_x, spawn_y, spawn_z;
+        Eigen::Quaterniond q;
 
-        // Hardcode pose, this node is not needed in hardware
-        double spawn_x = current_x_ + (swipe_length / 2.0);
-        double spawn_y = (current_side_ == "LEFT") ? 0.97 : -0.97;
-        double spawn_z = current_z_ - 0.1;
+        if (world_name_ == "sewer") {
+            // Sewer case: vertical swipe on front wall
+            spawn_x = current_x_ + impact_wall_distance_;
+            spawn_y = current_y_;
+            spawn_z = current_z_ - 0.5; // shift down to cover the swipe
 
-        double marker_yaw = 0.0;
-        if (current_side_ == "LEFT") {
-            marker_yaw = M_PI;
+            // Rotate by -pi/2 around Y so that X (length 1.5) goes to Z axis and faces -X
+            q = Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI_2, Eigen::Vector3d::UnitY()));
+        } else {
+            // Corridor case: horizontal swipe on side wall
+            double swipe_length = 1.0; 
+            spawn_x = current_x_ + (swipe_length / 2.0);
+            spawn_y = (current_side_ == "LEFT") ? 0.97 : -0.97;
+            spawn_z = current_z_ - 0.1;
+
+            double marker_yaw = 0.0;
+            if (current_side_ == "LEFT") {
+                marker_yaw = M_PI;
+            }
+
+            // Orientation: Yaw only (with pitch offset)
+            Eigen::Quaterniond q_yaw(Eigen::AngleAxisd(marker_yaw, Eigen::Vector3d::UnitZ()));
+            Eigen::Quaterniond q_pitch(Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitX()));
+            q = q_yaw * q_pitch; 
         }
-
-        // Orientation: Yaw only (with pitch offset)
-        Eigen::Quaterniond q_yaw(Eigen::AngleAxisd(marker_yaw, Eigen::Vector3d::UnitZ()));
-        Eigen::Quaterniond q_pitch(Eigen::AngleAxisd(M_PI_2, Eigen::Vector3d::UnitX()));
-        Eigen::Quaterniond q = q_yaw * q_pitch; 
 
         // Publish pose to RViz
         geometry_msgs::msg::PoseStamped aruco_pose;
@@ -92,6 +103,8 @@ private:
         aruco_pose.pose.orientation.z = q.z();
         aruco_pose.pose.orientation.w = q.w();
         pub_aruco_pose_->publish(aruco_pose);
+
+        RCLCPP_INFO(this->get_logger(), "Spawning mesh at X: %.2f, Y: %.2f, Z: %.2f", spawn_x, spawn_y, spawn_z);
 
         // Generate a unique name
         static int spawn_count = 1;
@@ -128,7 +141,6 @@ private:
     }
 
     double current_x_, current_y_, current_z_, current_yaw_;
-    bool is_spawned_; 
     double impact_wall_distance_;
     std::string current_side_;
     std::string world_name_;

@@ -49,7 +49,9 @@ spray_heuristic_node:
 
 wrench_estimator_node:
   ros__parameters:
-    mass: 2.23
+    gazebo_world: "corridor"
+    gazebo_model: "baby_k_0"
+    mass: 2.0
     inertia_xx: 0.0420
     inertia_yy: 0.0280
     inertia_zz: 0.0600
@@ -62,7 +64,7 @@ wrench_estimator_node:
 
 flight_odometry_filter_node:
   ros__parameters:
-    mass: 2.23
+    mass: 2.0
     inertia_xx: 0.0420
     inertia_yy: 0.0280
     inertia_zz: 0.0600

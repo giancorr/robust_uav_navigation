@@ -62,6 +62,24 @@ def generate_launch_description():
             parameters=[config_file]
         ),
 
+        # Swipe spawner
+        Node(
+            package='vio_recovery',
+            executable='swipe_spawner',
+            name='swipe_spawner',
+            output='screen',
+            parameters=[config_file]
+        ),
+
+        # Wrench estimator
+        Node(
+            package='vio_recovery',
+            executable='wrench_estimator_node',
+            name='wrench_estimator_node',
+            output='screen',
+            parameters=[config_file]
+        ),
+
         # Logger
         Node(
             package='vio_recovery',

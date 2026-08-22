@@ -45,6 +45,7 @@ public:
         auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         std::string world_name = this->declare_parameter<std::string>("gazebo_world", "leonardo_race");
+        std::string model_name = this->declare_parameter<std::string>("gazebo_model", "baby_k_0");
 
         thrust_sub_ = this->create_subscription<px4_msgs::msg::VehicleThrustSetpoint>(
             "/fmu/out/vehicle_thrust_setpoint", qos,
@@ -55,7 +56,7 @@ public:
             std::bind(&WrenchEstimatorNode::torque_callback, this, _1));
 
         imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-            "/world/" + world_name + "/model/baby_k_0/link/base_link/sensor/imu_sensor/imu", qos,
+            "/world/" + world_name + "/model/" + model_name + "/link/base_link/sensor/imu_sensor/imu", qos,
             std::bind(&WrenchEstimatorNode::imu_callback, this, _1));
 
     }
