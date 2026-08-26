@@ -1,0 +1,17 @@
+vio_wall_densifier:
+  ros__parameters:
+    max_wall_length: 3.0
+    max_drone_distance: 5.0
+    cluster_tolerance: 0.8
+
+vio_mapping:
+  ros__parameters:
+    # --- T_imu_cam for cam0 (sewer camera_down) as FRONT ---
+    T_imu_cam_front:
+      R: [0.0, -1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, -1.0]
+      t: [0.20, 0.0, -0.08]
+    
+    # --- T_imu_cam for cam1 (sewer camera_up) as REAR ---
+    T_imu_cam_rear:
+      R: [0.0, 0.5, 0.86603, -1.0, 0.0, 0.0, 0.0, -0.86603, 0.5]
+      t: [0.20, 0.0, -0.01]

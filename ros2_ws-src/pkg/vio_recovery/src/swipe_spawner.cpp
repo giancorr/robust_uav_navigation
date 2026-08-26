@@ -20,7 +20,7 @@ public:
         this->declare_parameter<double>("impact_wall_distance", 0.35);
         this->get_parameter("impact_wall_distance", impact_wall_distance_);
 
-        this->declare_parameter<std::string>("odom_topic", "/px4/odometry/out");
+        this->declare_parameter<std::string>("odom_topic", "/model/baby_k_0/odometry");
         std::string odom_topic;
         this->get_parameter("odom_topic", odom_topic);
 

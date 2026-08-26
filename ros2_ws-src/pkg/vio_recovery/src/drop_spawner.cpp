@@ -67,7 +67,7 @@ private:
         // Offset coordinates backwards
         double spawn_x = current_x_ - (backward_offset * std::cos(current_yaw_));
         double spawn_y = current_y_ - (backward_offset * std::sin(current_yaw_));
-        double spawn_z = 0.015; // Slightly raised to avoid flickering with the floor
+        double spawn_z = 0.03; // Raised to avoid being covered by floor features
         
         // Orientation: Yaw only
         Eigen::Quaterniond q(Eigen::AngleAxisd(current_yaw_, Eigen::Vector3d::UnitZ()));

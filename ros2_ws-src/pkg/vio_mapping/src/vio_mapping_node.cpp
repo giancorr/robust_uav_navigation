@@ -45,23 +45,33 @@ public:
     ovde_ = std::make_unique<OVDE>(ovde_params_);
     dbof_ = std::make_unique<DBOF>(dbof_params_);
 
-    // --- T_imu_cam per cam0 (sewer camera_down) come FRONT ---
+    // --- T_imu_cam per cam0 (FRONT) ---
     T_imu_cam_front_ = Eigen::Isometry3d::Identity();
+    std::vector<double> r_front_default = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    std::vector<double> t_front_default = {0.0, 0.0, 0.0};
+    std::vector<double> r_front = declare_parameter("T_imu_cam_front.R", r_front_default);
+    std::vector<double> t_front = declare_parameter("T_imu_cam_front.t", t_front_default);
+    
     Eigen::Matrix3d R_ic_front;
-    R_ic_front <<  0.0, -1.0,  0.0,
-                  -1.0,  0.0,  0.0,
-                   0.0,  0.0, -1.0;
-    Eigen::Vector3d t_ic_front(0.20, 0.0, -0.08);
+    R_ic_front << r_front[0], r_front[1], r_front[2],
+                  r_front[3], r_front[4], r_front[5],
+                  r_front[6], r_front[7], r_front[8];
+    Eigen::Vector3d t_ic_front(t_front[0], t_front[1], t_front[2]);
     T_imu_cam_front_.linear() = R_ic_front;
     T_imu_cam_front_.translation() = t_ic_front;
 
-    // --- T_imu_cam per cam1 (sewer camera_up) come REAR ---
+    // --- T_imu_cam per cam1 (REAR) ---
     T_imu_cam_rear_ = Eigen::Isometry3d::Identity();
+    std::vector<double> r_rear_default = {1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+    std::vector<double> t_rear_default = {0.0, 0.0, 0.0};
+    std::vector<double> r_rear = declare_parameter("T_imu_cam_rear.R", r_rear_default);
+    std::vector<double> t_rear = declare_parameter("T_imu_cam_rear.t", t_rear_default);
+
     Eigen::Matrix3d R_ic_rear;
-    R_ic_rear <<  0.0,      0.5,      0.86603,
-                 -1.0,      0.0,      0.0,
-                  0.0,     -0.86603,  0.5;
-    Eigen::Vector3d t_ic_rear(0.20, 0.0, -0.01);
+    R_ic_rear << r_rear[0], r_rear[1], r_rear[2],
+                 r_rear[3], r_rear[4], r_rear[5],
+                 r_rear[6], r_rear[7], r_rear[8];
+    Eigen::Vector3d t_ic_rear(t_rear[0], t_rear[1], t_rear[2]);
     T_imu_cam_rear_.linear() = R_ic_rear;
     T_imu_cam_rear_.translation() = t_ic_rear;
 

@@ -68,3 +68,4 @@ __pycache__/
 *.backup
 *.old
 ros2_ws-src/pkg/vio_recovery/flight_logs/log_octomap.bt
+ros2_ws-src/pkg/vio_recovery/metrics_output/

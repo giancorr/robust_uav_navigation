@@ -1,0 +1,17 @@
+vio_wall_densifier:
+  ros__parameters:
+    max_wall_length: 3.0
+    max_drone_distance: 5.0
+    cluster_tolerance: 0.8
+
+vio_mapping:
+  ros__parameters:
+    # --- T_imu_cam for cam0 (corridor, front camera) ---
+    T_imu_cam_front:
+      R: [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, -1.0, 0.0]
+      t: [0.21233, -0.03000, -0.01122]
+    
+    # --- T_imu_cam for cam1 (corridor, rear camera - tilted up 15°) ---
+    T_imu_cam_rear:
+      R: [0.0, 0.25882, -0.96593, 1.0, 0.0, 0.0, 0.0, -0.96593, -0.25882]
+      t: [-0.40000, 0.00000, -0.01500]

@@ -4,15 +4,20 @@ degeneracy_monitor_node:
     kx2: 750.0
     ky1: 350.0
     ky2: 750.0
-    kz1: 300.0
-    kz2: 400.0
-    delta_t: 0.05
+    kz1: 350.0
+    kz2: 750.0
+    delta_t: 0.1
     stagnation_epsilon: 1e-4
     max_stagnation_counts: 5
 
 swipe_spawner:
   ros__parameters:
+    gazebo_world: "corridor"
     impact_wall_distance: 0.3
+
+drop_spawner:
+  ros__parameters:
+    gazebo_world: "corridor"
 
 surface_detector_node:
   ros__parameters:
@@ -28,9 +33,9 @@ vio_recovery_controller_node:
 vio_recovery_fsm_node:
   ros__parameters:
     enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
-    enable_lateral: false                       # If false, skips lateral wall swipe
+    enable_lateral: true                       # If false, skips lateral wall swipe
     enable_bottom: true                        # If false, skips dropping marker on the ground
-    trigger_on_potentially_inconsistent: true # If false, only triggers on INCONSISTENT state
+    trigger_on_potentially_inconsistent: true  # If false, only triggers on INCONSISTENT state
     min_consistent_to_arm: 10                  # Number of consecutive CONSISTENT messages before FSM arms
     delay_before_drop: 1.5                     # Wait time (seconds) in STOP state before dropping ground marker
     strafe_velocity: 0.10                      # Lateral velocity (m/s) towards the wall
@@ -38,7 +43,7 @@ vio_recovery_fsm_node:
     return_distance: 0.50                      # Distance (m) to travel away from the wall during RETURN
     max_strafe_distance: 5.0                   # Maximum distance (m) to strafe before aborting
     swipe_length: 1.0                          # Length (m) of the forward swipe motion
-    swipe_velocity: 0.2                        # Forward velocity (m/s) during SWIPE
+    swipe_velocity: 0.1                        # Forward velocity (m/s) during SWIPE
     impact_force_threshold: 0.5                # Force threshold (N) to detect wall contact
 
 spray_heuristic_node:

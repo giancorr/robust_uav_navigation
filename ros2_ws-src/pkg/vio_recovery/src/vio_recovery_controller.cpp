@@ -13,9 +13,7 @@ using namespace std::chrono_literals;
 class VioRecoveryController : public rclcpp::Node {
 public:
     VioRecoveryController() : Node("vio_recovery_controller") {
-        this->declare_parameter<double>("force_filter_alpha", 0.4);
-        force_filter_alpha_ = this->get_parameter("force_filter_alpha").as_double();
-
+        
         // Subscriptions
         sub_state_ = this->create_subscription<std_msgs::msg::Int32>(
             "/fsm/current_state_num", 10,
@@ -23,7 +21,6 @@ public:
                 if (current_state_ != msg->data) {
                     // Reset integrals on state change
                     yaw_integral_ = 0.0;
-                    filtered_lateral_force_ = 0.0;
                 }
                 current_state_ = msg->data;
             });
@@ -106,13 +103,7 @@ private:
             prev_yaw_err_ = 0.0;
         }
 
-        // ── Force reaction: disabled ──
-        // (User requested pure X velocity during SWIPE)
-        filtered_lateral_force_ = 0.0;
-
         // Only publish final command if not in NAVIGATE
-        // Note: we also publish during STOP and SETTLE so that the FSM's zero-velocity
-        // commands are forwarded to the motors to actively hold position.
         if (current_state_ != 0) {
             geometry_msgs::msg::Twist final_vel = ff_cmd_vel_;
 
@@ -139,9 +130,7 @@ private:
     std::string strafe_direction_ = "RIGHT";
     double current_yaw_ = 0.0;
     double current_fy_ = 0.0;
-
-    double force_filter_alpha_ = 0.4;
-    double filtered_lateral_force_ = 0.0;
+    
     double yaw_integral_ = 0.0;
     double prev_yaw_err_ = 0.0;
     

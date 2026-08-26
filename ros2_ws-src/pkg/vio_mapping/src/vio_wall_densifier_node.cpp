@@ -108,7 +108,7 @@ private:
         std::vector<pcl::PointIndices> cluster_indices;
         pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
         ec.setClusterTolerance(cluster_tolerance_); // parameter for clustering distance
-        ec.setMinClusterSize(10);
+        ec.setMinClusterSize(20); // Raised: 10 was too few to reliably detect a wall
         ec.setMaxClusterSize(25000);
         ec.setSearchMethod(tree);
         ec.setInputCloud(nearby_cloud);
@@ -138,8 +138,8 @@ private:
             seg.setOptimizeCoefficients(true);
             seg.setModelType(pcl::SACMODEL_PLANE);
             seg.setMethodType(pcl::SAC_RANSAC);
-            seg.setMaxIterations(100);
-            seg.setDistanceThreshold(0.20);
+            seg.setMaxIterations(200);
+            seg.setDistanceThreshold(0.08); // Tight: 8cm — prevents diffuse feature clouds from fitting a phantom plane
 
             pcl::ExtractIndices<pcl::PointXYZ> extract;
 
@@ -151,13 +151,24 @@ private:
                 continue; // No plane found in this cluster
             }
 
+            // Require a minimum number of inliers AND a minimum inlier ratio
+            // to avoid phantom walls from sparse/noisy feature clusters
+            size_t min_inliers = 15;
+            double min_inlier_ratio = 0.40;
+            double inlier_ratio = static_cast<double>(inliers->indices.size()) / static_cast<double>(remaining_cloud->points.size());
+            if (inliers->indices.size() < min_inliers || inlier_ratio < min_inlier_ratio) {
+                RCLCPP_DEBUG(this->get_logger(), "Skipping weak plane: %zu inliers (%.0f%%) — not a real wall",
+                             inliers->indices.size(), inlier_ratio * 100.0);
+                continue;
+            }
+
             // Check if the plane is vertical (a wall). 
             double a = coefficients->values[0];
             double b = coefficients->values[1];
             double c = coefficients->values[2];
             double d = coefficients->values[3];
             
-            if (std::abs(c) < 0.3) { // It's a vertical wall!
+            if (std::abs(c) < 0.15) { // It's a vertical wall (tightened from 0.3 — avoids slanted surfaces)
                 
                 pcl::PointCloud<pcl::PointXYZ>::Ptr wall_cloud(new pcl::PointCloud<pcl::PointXYZ>());
                 extract.setInputCloud(remaining_cloud);
@@ -175,17 +186,27 @@ private:
                 if (wall_span > max_wall_length_) {
                     RCLCPP_DEBUG(this->get_logger(), "Skipping wall densification: span %.1fm > max %.1fm", wall_span, max_wall_length_);
                 } else {
-                    double step = 0.2;
+                    double step = 0.05; // Decreased from 0.1 to densify more
                     
                     if (std::abs(a) > std::abs(b)) {
-                        for (double y = min_pt.y; y <= max_pt.y; y += step) {
+                        // Wall normal is X — spans along Y
+                        // Extend 2.0m beyond each side of the detected span
+                        double y_min_ext = min_pt.y - 2.0;
+                        double y_max_ext = max_pt.y + 2.0;
+                        
+                        for (double y = y_min_ext; y <= y_max_ext; y += step) {
                             for (double z = min_pt.z; z <= max_pt.z; z += step) {
                                 double x = -(b * y + c * z + d) / a;
                                 output_cloud->points.push_back(pcl::PointXYZ(x, y, z));
                             }
                         }
                     } else {
-                        for (double x = min_pt.x; x <= max_pt.x; x += step) {
+                        // Wall normal is Y — spans along X
+                        // Extend 2.0m beyond each side of the detected span
+                        double x_min_ext = min_pt.x - 2.0;
+                        double x_max_ext = max_pt.x + 2.0;
+                        
+                        for (double x = x_min_ext; x <= x_max_ext; x += step) {
                             for (double z = min_pt.z; z <= max_pt.z; z += step) {
                                 double y = -(a * x + c * z + d) / b;
                                 output_cloud->points.push_back(pcl::PointXYZ(x, y, z));
