@@ -23,7 +23,7 @@ sewer_recovery_fsm_node:
     hover_timeout: 3.0
     min_consistent_to_arm: 5
     settle_duration: 1.5
-    arming_delay: 12.0
+    arming_delay: 8.0
 
 swipe_spawner:
   ros__parameters:

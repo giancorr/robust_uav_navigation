@@ -288,18 +288,34 @@ void SewerRecoveryFSM::fsm_loop() {
         }
 
         case SewerState::SWIPE: {
-            if (!swipe_command_sent_) {
-                std_msgs::msg::String swipe_msg;
-                swipe_msg.data = "FRONT";
-                pub_swipe_cmd_->publish(swipe_msg);
-                swipe_command_sent_ = true;
-                RCLCPP_INFO(this->get_logger(), "[SWIPE] Spawned swipe on FRONT wall.");
-            }
-
-            // Swipe the tactile stick vertically against the wall (+z)
-            send_velocity(0.0, 0.0, -swipe_velocity_, 0.0);
-
-            if (elapsed >= swipe_duration_) {
+            if (elapsed < 0.3) {
+                // Phase 1 (first 0.3s): retract from wall to cancel the position integrator overshoot.
+                // If we command vx=0 immediately, the PID holds the position inside the wall.
+                // Sending a brief opposite velocity unwinds the integrator for a softer impact.
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 100,
+                    "[SWIPE] Retracting from wall (vx=%.2f, t=%.2fs)", -approach_velocity_, elapsed);
+                send_velocity(-approach_velocity_, 0.0, 0.0, 0.0);
+            } else if (elapsed < swipe_duration_ + 0.3) {
+                // Phase 2: Execute the vertical swipe
+                if (!swipe_command_sent_) {
+                    std_msgs::msg::String swipe_msg;
+                    swipe_msg.data = "FRONT";
+                    pub_swipe_cmd_->publish(swipe_msg);
+                    swipe_command_sent_ = true;
+                    RCLCPP_INFO(this->get_logger(), "[SWIPE] Spawned swipe on FRONT wall.");
+                }
+                send_velocity(0.0, 0.0, -swipe_velocity_, 0.0);
+            } else if (elapsed < swipe_duration_ + 1.3) {
+                // Phase 3: Kill vertical momentum smoothly with a ramp-down (1.0 second)
+                double ramp = 1.0 - (elapsed - (swipe_duration_ + 0.3)) / 1.0;
+                send_velocity(0.0, 0.0, -swipe_velocity_ * ramp, 0.0);
+            } else if (elapsed < swipe_duration_ + 2.3) {
+                // Phase 4: Gently detach from wall to avoid trajectory friction during RETURN (1.0 second)
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                    "[SWIPE] Detaching from wall (vx=%.2f)", -0.05);
+                send_velocity(-0.05, 0.0, 0.0, 0.0);
+            } else {
+                // Transition to RETURN
                 RCLCPP_INFO(this->get_logger(), "[SWIPE] → RETURN");
                 current_state_ = SewerState::RETURN;
                 state_entry_time_ = current_time;
