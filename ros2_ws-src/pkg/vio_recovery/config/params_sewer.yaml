@@ -13,21 +13,21 @@ degeneracy_monitor_node:
 sewer_recovery_fsm_node:
   ros__parameters:
     enable_recovery: true
-    trigger_on_potentially_inconsistent: false
+    trigger_on_potentially_inconsistent: true
     approach_velocity: 0.1
     impact_force_threshold: 1.0
     swipe_velocity: 0.2
     swipe_duration: 2.0
     return_velocity: 0.15
-    return_duration: 2.0
-    hover_timeout: 2.0
+    return_duration: 3.5
+    hover_timeout: 3.0
     min_consistent_to_arm: 5
     settle_duration: 1.5
-    arming_delay: 5.0
+    arming_delay: 12.0
 
 swipe_spawner:
   ros__parameters:
-    impact_wall_distance: 0.3
+    impact_wall_distance: 0.5
     gazebo_world: "sewer"
     odom_topic: "/model/babyk_sewer_0/odometry"
 
@@ -36,33 +36,6 @@ surface_detector_node:
     min_valid_dist: 0.2
     max_valid_dist: 6.0
     camera_fx: 432.61
-
-vio_recovery_controller_node:
-  ros__parameters:
-    force_filter_alpha: 0.4
-
-
-vio_recovery_fsm_node:
-  ros__parameters:
-    enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
-    enable_lateral: false                       # If false, skips lateral wall swipe
-    enable_bottom: true                        # If false, skips dropping marker on the ground
-    trigger_on_potentially_inconsistent: true # If false, only triggers on INCONSISTENT state
-    min_consistent_to_arm: 10                  # Number of consecutive CONSISTENT messages before FSM arms
-    delay_before_drop: 1.5                     # Wait time (seconds) in STOP state before dropping ground marker
-    strafe_velocity: 0.10                      # Lateral velocity (m/s) towards the wall
-    return_velocity: 0.15                      # Lateral velocity (m/s) when returning to center
-    return_distance: 0.50                      # Distance (m) to travel away from the wall during RETURN
-    max_strafe_distance: 5.0                   # Maximum distance (m) to strafe before aborting
-    swipe_length: 1.0                          # Length (m) of the forward swipe motion
-    swipe_velocity: 0.2                        # Forward velocity (m/s) during SWIPE
-    impact_force_threshold: 0.5                # Force threshold (N) to detect wall contact
-
-spray_heuristic_node:
-  ros__parameters:
-    max_reachable_dist: 5.0
-    min_features_critical: 30
-    max_marker_interval: 5.0
 
 wrench_estimator_node:
   ros__parameters:

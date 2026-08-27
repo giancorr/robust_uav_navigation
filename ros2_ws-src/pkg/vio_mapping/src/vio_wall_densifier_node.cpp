@@ -42,8 +42,11 @@ public:
         this->declare_parameter<double>("cluster_tolerance", 0.5);
         cluster_tolerance_ = this->get_parameter("cluster_tolerance").as_double();
 
-        RCLCPP_INFO(this->get_logger(), "VIO Wall Densifier Node initialized (max_wall_length=%.1fm, max_drone_distance=%.1fm, cluster_tolerance=%.2fm).", 
-                    max_wall_length_, max_drone_distance_, cluster_tolerance_);
+        this->declare_parameter<double>("max_floor_radius", 2.0);
+        max_floor_radius_ = this->get_parameter("max_floor_radius").as_double();
+
+        RCLCPP_INFO(this->get_logger(), "VIO Wall Densifier Node initialized (max_wall_length=%.1fm, max_drone_distance=%.1fm, cluster_tolerance=%.2fm, max_floor_radius=%.1fm).", 
+                    max_wall_length_, max_drone_distance_, cluster_tolerance_, max_floor_radius_);
     }
 
 private:
@@ -168,7 +171,7 @@ private:
             double c = coefficients->values[2];
             double d = coefficients->values[3];
             
-            if (std::abs(c) < 0.15) { // It's a vertical wall (tightened from 0.3 — avoids slanted surfaces)
+            if (std::abs(c) < 0.3) { // It's a vertical wall (restored to original threshold)
                 
                 pcl::PointCloud<pcl::PointXYZ>::Ptr wall_cloud(new pcl::PointCloud<pcl::PointXYZ>());
                 extract.setInputCloud(remaining_cloud);
@@ -186,7 +189,12 @@ private:
                 if (wall_span > max_wall_length_) {
                     RCLCPP_DEBUG(this->get_logger(), "Skipping wall densification: span %.1fm > max %.1fm", wall_span, max_wall_length_);
                 } else {
-                    double step = 0.05; // Decreased from 0.1 to densify more
+                    double step = 0.1; // Default
+                    if (current_drone_pos_.z() < -4.0) {
+                        step = 0.02; // Densify heavily if drone is low
+                        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 2000, 
+                            "Drone is low (z=%.2f), densifying wall heavily (step=0.02)", current_drone_pos_.z());
+                    }
                     
                     if (std::abs(a) > std::abs(b)) {
                         // Wall normal is X — spans along Y
@@ -217,6 +225,7 @@ private:
                 
                 num_walls_found++;
             }
+
         }
 
         output_cloud->width = output_cloud->points.size();
@@ -229,6 +238,7 @@ private:
     double max_wall_length_;
     double max_drone_distance_;
     double cluster_tolerance_;
+    double max_floor_radius_;   // Radius [m] of the XY disc densified when a horizontal floor is detected
     Eigen::Vector3d current_drone_pos_ = Eigen::Vector3d::Zero();
     bool has_odom_ = false;
 

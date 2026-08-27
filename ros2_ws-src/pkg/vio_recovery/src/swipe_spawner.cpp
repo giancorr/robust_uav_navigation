@@ -67,9 +67,9 @@ private:
 
         if (world_name_ == "sewer") {
             // Sewer case: vertical swipe on front wall
-            spawn_x = current_x_ + impact_wall_distance_;
+            spawn_x = current_x_ + impact_wall_distance_ + 0.05; // slightly more forward on x
             spawn_y = current_y_;
-            spawn_z = current_z_ - 0.5; // shift down to cover the swipe
+            spawn_z = current_z_;
 
             // Rotate by -pi/2 around Y so that X (length 1.5) goes to Z axis and faces -X
             q = Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI_2, Eigen::Vector3d::UnitY()));
