@@ -12,9 +12,11 @@
         </geometry>
         <material>
           <diffuse>1 1 1 1</diffuse>
+          <emissive>0.8 0.8 0.8 1</emissive>
           <pbr>
             <metal>
               <albedo_map>file:///root/ros2_ws/src/pkg/vio_recovery/models/splatter_stain/materials/textures/vernice.png</albedo_map>
+              <emissive_map>file:///root/ros2_ws/src/pkg/vio_recovery/models/splatter_stain/materials/textures/vernice.png</emissive_map>
             </metal>
           </pbr>
         </material>
