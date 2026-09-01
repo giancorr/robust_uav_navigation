@@ -33,7 +33,7 @@ vio_recovery_controller_node:
 vio_recovery_fsm_node:
   ros__parameters:
     enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
-    enable_lateral: true                       # If false, skips lateral wall swipe
+    enable_lateral: false                       # If false, skips lateral wall swipe
     enable_bottom: true                        # If false, skips dropping marker on the ground
     trigger_on_potentially_inconsistent: true  # If false, only triggers on INCONSISTENT state
     min_consistent_to_arm: 10                  # Number of consecutive CONSISTENT messages before FSM arms
