@@ -198,8 +198,7 @@ void VioRecoveryFSM::wrench_callback(const geometry_msgs::msg::WrenchStamped::Sh
     double fx = msg->wrench.force.x;
     double fy = msg->wrench.force.y;
     double fz = msg->wrench.force.z;
-    // Exclude fz to avoid false positives from thrust estimation errors
-    double force_magnitude = std::sqrt(fx*fx + fy*fy);
+    double force_magnitude = std::sqrt(fx*fx + fy*fy + fz*fz);
 
     // Process wrench based on state
     if (current_state_ == DroneState::STRAFE && !impact_detected_) {
@@ -419,22 +418,11 @@ void VioRecoveryFSM::fsm_loop() {
                 }
                 state_entry_time_ = this->now();
             } else {
-                // Phase 1 (first 0.3s): retract from wall to cancel the position integrator overshoot.
-                // During STRAFE, traj_interp's _cmd_position.y was being pushed into the wall.
-                // If we send vy=0 immediately, the PID holds that position (inside the wall) and
-                // presses the drone hard. Sending a brief opposite velocity unwinds the integrator.
-                if (elapsed < 0.3) {
-                    double vy_retract = (strafe_direction_ == "LEFT") ? -strafe_velocity_ : strafe_velocity_;
-                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 100,
-                        "[SETTLE] Retracting from wall (vy=%.2f, t=%.2fs)", vy_retract, elapsed);
-                    send_velocity(0.0, vy_retract, 0.0, 0.0);
-                } else {
-                    // Phase 2: hold position while yaw controller corrects orientation
-                    RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
-                        "[SETTLE] Waiting for yaw convergence (err=%.3f rad, %.1f°)",
-                        yaw_err, yaw_err * 180.0 / M_PI);
-                    send_velocity(0.0, 0.0, 0.0, 0.0);
-                }
+                // Maintain position while PI yaw (in controller) corrects orientation
+                RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 500,
+                    "[SETTLE] Waiting for yaw convergence (err=%.3f rad, %.1f°)",
+                    yaw_err, yaw_err * 180.0 / M_PI);
+                send_velocity(0.0, 0.0, 0.0, 0.0);
             }
             break;
         }
