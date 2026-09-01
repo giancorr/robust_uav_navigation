@@ -91,21 +91,7 @@ private:
         // 1. Keep all original points
         *output_cloud = *input_cloud;
 
-        // --- FEATURE PILLAR EXTRUSION ---
-        // Extrude sparse features downward to create solid vertical columns.
-        // This ensures the trajectory interpolator/planner always detects a solid obstacle
-        // even if VIO only tracked a single feature on the top of it.
-        double z_ground = 0.1; // Ground level
-        double pillar_step = 0.2; // Step size for extrusion
-        
-        for (const auto& pt : input_cloud->points) {
-            if (pt.z > 0.4 && pt.z < 3.0) {
-                for (double z = pt.z - pillar_step; z >= z_ground; z -= pillar_step) {
-                    output_cloud->points.push_back(pcl::PointXYZ(pt.x, pt.y, z));
-                }
-            }
-        }
-        // ---------------------------------
+
 
         // If we don't have odometry yet, we can't filter by distance
         if (!has_odom_) {
