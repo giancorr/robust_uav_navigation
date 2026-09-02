@@ -153,6 +153,8 @@ void VioRecoveryFSM::health_callback(const std_msgs::msg::String::SharedPtr msg)
         consecutive_consistent_count_ = 0;
         armed_ = false;
         trigger_condition = true;
+    } else if (msg->data == "POTENTIALLY_INCONSISTENT" && trigger_on_potentially_inconsistent_) {
+        trigger_condition = true;
     } else {
         RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
             "[HEALTH] Unknown health message: '%s'", msg->data.c_str());
