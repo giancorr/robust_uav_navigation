@@ -25,7 +25,7 @@ public:
         auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/ov_msckf/odomimu", qos,
+            "/back/odomimu", qos,
             std::bind(&FlightOdometryFilter::odom_callback, this, std::placeholders::_1));
 
         px4_odom_pub_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(

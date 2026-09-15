@@ -78,9 +78,12 @@ def myPlot(time, data_list, labels, title, ncols=2, use_tex=False, t_health=None
         if t_fsm is not None and fsm_states is not None:
             add_fsm_background(axes[i], t_fsm, fsm_states, time_plot[0], time_plot[-1])
 
-        if "Lambda" in labels[i]:
-            axes[i].axhline(y=350, color='r', linestyle='--', alpha=0.8, label=r'$K_{j,1}$')
-            axes[i].axhline(y=450, color='b', linestyle='--', alpha=0.8, label=r'$K_{j,2}$')
+        if labels[i] == "Lambda X" or labels[i] == "Lambda Y":
+            axes[i].axhline(y=400, color='r', linestyle='--', alpha=0.8, label=r'$K_{j,1}$')
+            axes[i].axhline(y=500, color='b', linestyle='--', alpha=0.8, label=r'$K_{j,2}$')
+        elif labels[i] == "Lambda Z":
+            axes[i].axhline(y=300, color='r', linestyle='--', alpha=0.8, label=r'$K_{j,1}$')
+            axes[i].axhline(y=400, color='b', linestyle='--', alpha=0.8, label=r'$K_{j,2}$')
 
         axes[i].legend(loc='best', fontsize='small')
     

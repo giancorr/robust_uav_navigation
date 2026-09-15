@@ -3,20 +3,6 @@
 # Allow local X11 connections for RViz
 xhost +local:root > /dev/null 2>&1
 
-echo "========================================="
-echo "Starting OpenVINS + Realsense container..."
-echo "NOTE: Make sure the camera is connected via USB!"
-echo "========================================="
-echo ""
-echo "Once inside the container, run:"
-echo "  1. cd /root/ros2_ws && colcon build --packages-select odometry_tracker openvins_bringup"
-echo "  2. source install/setup.bash"
-echo ""
-echo "  SINGLE (no EKF):   tmuxp load /run_config/utils/session.yml"
-echo "  SINGLE (with EKF): tmuxp load /run_config/utils/single_ekf_session.yml"
-echo "  DUAL (with EKF):   tmuxp load /run_config/utils/dual_session.yml"
-echo ""
-
 # Run the docker container
 docker run -it --rm \
     --privileged \

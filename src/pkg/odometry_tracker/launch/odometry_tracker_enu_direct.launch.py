@@ -1,14 +1,27 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
+    input_topic_arg = DeclareLaunchArgument(
+        'input_odom_topic',
+        default_value='/back/odomimu',
+        description='OpenVINS odometry topic: /back/odomimu (back-only) or /ov_msckf/odomimu (multicam)'
+    )
+
     return LaunchDescription([
-        # 1. Direct Converter: Single OpenVINS odometry to base_link ENU
+        input_topic_arg,
+
+        # 1. Direct Converter: OpenVINS FLU odometry → base_link ENU
         Node(
             package='odometry_tracker',
             executable='odom_to_baselink_enu_direct',
             name='odom_to_baselink_enu_direct',
-            output='screen'
+            output='screen',
+            remappings=[
+                ('/back/odomimu', LaunchConfiguration('input_odom_topic'))
+            ]
         ),
         
         # 2. Path Publisher (for visualization)

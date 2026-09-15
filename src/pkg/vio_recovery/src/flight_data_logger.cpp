@@ -64,7 +64,7 @@ public:
 
         // OpenVINS VIO Odometry
         sub_vio_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/ov_msckf/odomimu", 10,
+            "/back/odomimu", 10,
             [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
                 OdomRecord rec;
                 rec.timestamp = (this->now() - start_time_).seconds();
@@ -100,7 +100,7 @@ public:
 
         // Degeneracy Eigenvalues
         sub_lambda_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
-            "/ov_msckf/degen_factor", 10,
+            "/back/degen_factor", 10,
             [this](const std_msgs::msg::Float32MultiArray::SharedPtr msg) {
                 if (msg->data.size() < 6) return;
                 LambdaRecord rec;

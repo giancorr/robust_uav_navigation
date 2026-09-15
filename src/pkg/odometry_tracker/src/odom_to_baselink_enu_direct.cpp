@@ -2,6 +2,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "tf2/LinearMath/Transform.h"
 #include "tf2/LinearMath/Quaternion.h"
+#include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/static_transform_broadcaster.h"
@@ -13,152 +14,137 @@ class OdomToBaselinkEnuDirect : public rclcpp::Node
 {
 public:
     OdomToBaselinkEnuDirect() : Node("odom_to_baselink_enu_direct") {
-        // Publisher (directly to /odometry/filtered since there is no EKF)
         odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odometry/filtered", 10);
-
-        // Subscriber (reads from the single OpenVINS instance)
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/ov_msckf/odomimu", 10, std::bind(&OdomToBaselinkEnuDirect::odom_callback, this, _1));
+            "/back/odomimu", 10, std::bind(&OdomToBaselinkEnuDirect::odom_callback, this, _1));
 
         tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
-        tf_static_broadcaster_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
-        // --- Conversion from FLU (ROS base_link) to NED (PX4 base_link) ---
-        tf2::Transform T_flu_to_ned;
-        T_flu_to_ned.setOrigin(tf2::Vector3(0, 0, 0));
-        tf2::Quaternion q_flu_ned;
-        q_flu_ned.setRPY(M_PI, 0.0, 0.0);
-        T_flu_to_ned.setRotation(q_flu_ned);
-
-        // --- Static transform: cam0 IMU -> base_link (FLU) ---
-        // OpenVINS is running relative to imu_front, so we use its transform
-        tf2::Transform T_ned_to_imu_front;
-        tf2::Quaternion q_front_ned(-0.5, 0.5, -0.5, -0.5);
-        T_ned_to_imu_front.setRotation(q_front_ned);
-        T_ned_to_imu_front.setOrigin(tf2::Vector3(0.0, 0.165, -0.13)); 
-        T_imu_front_base_ = T_ned_to_imu_front * T_flu_to_ned;
-
-        // --- Static transform: cam1 IMU -> base_link (FLU) ---
-        tf2::Transform T_ned_to_imu_back;
-        tf2::Quaternion q_back_ned(-0.06162842, -0.35355339, 0.9312693, -0.06162842);
-        T_ned_to_imu_back.setRotation(q_back_ned);
-        T_ned_to_imu_back.setOrigin(tf2::Vector3(0.04, -0.18, 0.15));
-        T_imu_back_base_ = T_ned_to_imu_back * T_flu_to_ned;
-
-        // --- Conversion from OpenVINS World (X=Left, Y=Back, Z=Up) to ROS ENU (X=Fwd, Y=Left, Z=Up) ---
-        tf2::Quaternion q_ov_ros;
-        q_ov_ros.setRPY(0.0, 0.0, M_PI / 2.0);
-        T_ov_to_ros_.setRotation(q_ov_ros);
-        T_ov_to_ros_.setOrigin(tf2::Vector3(0, 0, 0));
-
-        publish_static_tfs();
-
-        RCLCPP_INFO(this->get_logger(), "OdomToBaselinkEnuDirect Node started. Publishing ENU Odometry to /odometry/filtered.");
+        RCLCPP_INFO(this->get_logger(), "OdomToBaselinkEnuDirect: FLU→ENU simple converter started.");
     }
 
 private:
     void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
-        // 1. Parse OpenVINS pose (T_ovworld_imu)
-        tf2::Transform T_ovworld_imu;
-        tf2::fromMsg(msg->pose.pose, T_ovworld_imu);
+        // --- READ INPUT (FLU) ---
+        double fx = msg->pose.pose.position.x;
+        double fy = msg->pose.pose.position.y;
+        double fz = msg->pose.pose.position.z;
 
-        // 2. T_rosworld_base = T_rosworld_ovworld * T_ovworld_imu * T_imu_base
-        // Note: we use T_imu_front_base_ because OpenVINS is running on imu_front
-        tf2::Transform T_rosworld_base = T_ov_to_ros_ * T_ovworld_imu * T_imu_front_base_;
+        double qx = msg->pose.pose.orientation.x;
+        double qy = msg->pose.pose.orientation.y;
+        double qz = msg->pose.pose.orientation.z;
+        double qw = msg->pose.pose.orientation.w;
 
-        // 3. Create ENU Odometry Message
-        nav_msgs::msg::Odometry out_msg;
-        out_msg.header.stamp = msg->header.stamp;
-        out_msg.header.frame_id = "odom";         // Standard ROS 2 map/odom frame
-        out_msg.child_frame_id = "base_link";     // Standard ROS 2 base_link
+        // --- FLU → ENU position: Rz(+90°) ---
+        // ENU_x = -FLU_y  (East = -Left = Right)
+        // ENU_y =  FLU_x  (North = Forward)
+        // ENU_z =  FLU_z  (Up = Up)
+        double ex =  -fy;
+        double ey =  fx;
+        double ez =  fz;
 
-        tf2::toMsg(T_rosworld_base, out_msg.pose.pose);
+        // --- FLU → ENU orientation: pre-multiply by Rz(+90°) ---
+        // q_rz90 = (w=0.7071, x=0, y=0, z=0.7071)
+        // q_enu = q_rz90 * q_flu
+        static const double cq = 0.70710678118; // cos(45°) = sin(45°)
+        double ew = cq * qw - cq * qz;
+        double eqx = cq * qx - cq * qy;
+        double eqy = cq * qy + cq * qx;
+        double eqz = cq * qz + cq * qw;
+        // Normalize
+        double norm = std::sqrt(ew*ew + eqx*eqx + eqy*eqy + eqz*eqz);
+        ew /= norm; eqx /= norm; eqy /= norm; eqz /= norm;
 
-        // 4. Transform Twist
-        tf2::Vector3 v_imu(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
-        tf2::Vector3 w_imu(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
-        
-        tf2::Transform T_base_imu = T_imu_front_base_.inverse();
-        tf2::Matrix3x3 R_base_imu = T_base_imu.getBasis();
-        tf2::Vector3 t_base_imu = T_base_imu.getOrigin();
+        // --- Zero initial position AND compute orientation correction ---
+        if (first_msg_) {
+            init_ex_ = ex;
+            init_ey_ = ey;
+            init_ez_ = ez;
 
-        tf2::Vector3 w_base = R_base_imu * w_imu;
-        tf2::Vector3 v_base = R_base_imu * v_imu + w_base.cross(t_base_imu);
+            // Compute empirical body correction: q_corr = q_init^(-1) * Rz(90°)
+            // Applied as RIGHT-multiply: q_out = q_enu(t) * q_corr
+            // At t=0: q_out = q_init * q_init^(-1) * Rz(90°) = Rz(90°) → NED yaw=0
+            double iw = ew, ix = -eqx, iy = -eqy, iz = -eqz; // q_init^(-1)
+            // Hamilton multiply: (iw,ix,iy,iz) * (cq, 0, 0, cq) where cq=cos(45°)
+            qcw_ = iw*cq - iz*cq;
+            qcx_ = ix*cq + iy*cq;
+            qcy_ = -ix*cq + iy*cq;
+            qcz_ = iw*cq + iz*cq;
+            double cn = std::sqrt(qcw_*qcw_ + qcx_*qcx_ + qcy_*qcy_ + qcz_*qcz_);
+            qcw_ /= cn; qcx_ /= cn; qcy_ /= cn; qcz_ /= cn;
 
-        out_msg.twist.twist.linear.x = v_base.x();
-        out_msg.twist.twist.linear.y = v_base.y();
-        out_msg.twist.twist.linear.z = v_base.z();
-        out_msg.twist.twist.angular.x = w_base.x();
-        out_msg.twist.twist.angular.y = w_base.y();
-        out_msg.twist.twist.angular.z = w_base.z();
+            first_msg_ = false;
+            RCLCPP_INFO(this->get_logger(), "Init ENU q=(%.4f,%.4f,%.4f,%.4f) corr=(%.4f,%.4f,%.4f,%.4f)",
+                eqx, eqy, eqz, ew, qcx_, qcy_, qcz_, qcw_);
+        }
+        ex -= init_ex_;
+        ey -= init_ey_;
+        ez -= init_ez_;
 
-        out_msg.pose.covariance = msg->pose.covariance;
-        out_msg.twist.covariance = msg->twist.covariance;
+        // --- Apply orientation: q_out = q_enu * q_correction (RIGHT-multiply) ---
+        // This preserves world-frame rotations correctly
+        double ow = ew*qcw_ - eqx*qcx_ - eqy*qcy_ - eqz*qcz_;
+        double ox = ew*qcx_ + eqx*qcw_ + eqy*qcz_ - eqz*qcy_;
+        double oy = ew*qcy_ - eqx*qcz_ + eqy*qcw_ + eqz*qcx_;
+        double oz = ew*qcz_ + eqx*qcy_ - eqy*qcx_ + eqz*qcw_;
+        double on = std::sqrt(ow*ow + ox*ox + oy*oy + oz*oz);
+        ew = ow/on; eqx = ox/on; eqy = oy/on; eqz = oz/on;
 
-        odom_pub_->publish(out_msg);
+        // --- DEBUG: print every 2 seconds ---
+        auto now = this->now();
+        if ((now - last_print_).seconds() > 2.0) {
+            double r, p, y;
+            tf2::Quaternion q_debug(eqx, eqy, eqz, ew);
+            tf2::Matrix3x3(q_debug).getRPY(r, p, y);
+            RCLCPP_INFO(this->get_logger(),
+                "IN(FLU) pos=(%.2f,%.2f,%.2f) | OUT(ENU) pos=(%.2f,%.2f,%.2f) RPY=(%.1f,%.1f,%.1f)deg",
+                fx, fy, fz, ex, ey, ez,
+                r * 180.0 / M_PI, p * 180.0 / M_PI, y * 180.0 / M_PI);
+            last_print_ = now;
+        }
 
-        // Publish dynamic TF odom -> base_link (Since there is no EKF to do it for us!)
-        geometry_msgs::msg::TransformStamped tf_msg;
-        tf_msg.header.stamp = msg->header.stamp;
-        tf_msg.header.frame_id = "odom";
-        tf_msg.child_frame_id = "base_link";
-        tf_msg.transform.translation.x = T_rosworld_base.getOrigin().x();
-        tf_msg.transform.translation.y = T_rosworld_base.getOrigin().y();
-        tf_msg.transform.translation.z = T_rosworld_base.getOrigin().z();
-        tf_msg.transform.rotation = tf2::toMsg(T_rosworld_base.getRotation());
-        tf_broadcaster_->sendTransform(tf_msg);
-    }
+        // --- PUBLISH ---
+        nav_msgs::msg::Odometry out;
+        out.header.stamp = msg->header.stamp;
+        out.header.frame_id = "odom";
+        out.child_frame_id = "base_link";
 
-    void publish_static_tfs() {
-        std::vector<geometry_msgs::msg::TransformStamped> static_tfs;
+        out.pose.pose.position.x = ex;
+        out.pose.pose.position.y = ey;
+        out.pose.pose.position.z = ez;
+        out.pose.pose.orientation.x = eqx;
+        out.pose.pose.orientation.y = eqy;
+        out.pose.pose.orientation.z = eqz;
+        out.pose.pose.orientation.w = ew;
 
-        // 1. odom -> openvins_world
-        geometry_msgs::msg::TransformStamped tf_ov;
-        tf_ov.header.stamp = this->now();
-        tf_ov.header.frame_id = "odom";
-        tf_ov.child_frame_id = "openvins_world";
-        tf_ov.transform.translation.x = T_ov_to_ros_.inverse().getOrigin().x();
-        tf_ov.transform.translation.y = T_ov_to_ros_.inverse().getOrigin().y();
-        tf_ov.transform.translation.z = T_ov_to_ros_.inverse().getOrigin().z();
-        tf_ov.transform.rotation = tf2::toMsg(T_ov_to_ros_.inverse().getRotation());
-        static_tfs.push_back(tf_ov);
+        out.pose.covariance = msg->pose.covariance;
+        out.twist = msg->twist;
 
-        // 2. base_link -> imu_front
-        geometry_msgs::msg::TransformStamped tf_front;
-        tf_front.header.stamp = this->now();
-        tf_front.header.frame_id = "base_link";
-        tf_front.child_frame_id = "imu_front";
-        tf2::Transform T_base_imu_front = T_imu_front_base_.inverse();
-        tf_front.transform.translation.x = T_base_imu_front.getOrigin().x();
-        tf_front.transform.translation.y = T_base_imu_front.getOrigin().y();
-        tf_front.transform.translation.z = T_base_imu_front.getOrigin().z();
-        tf_front.transform.rotation = tf2::toMsg(T_base_imu_front.getRotation());
-        static_tfs.push_back(tf_front);
+        odom_pub_->publish(out);
 
-        // 3. base_link -> imu_back
-        geometry_msgs::msg::TransformStamped tf_back;
-        tf_back.header.stamp = this->now();
-        tf_back.header.frame_id = "base_link";
-        tf_back.child_frame_id = "imu_back";
-        tf2::Transform T_base_imu_back = T_imu_back_base_.inverse();
-        tf_back.transform.translation.x = T_base_imu_back.getOrigin().x();
-        tf_back.transform.translation.y = T_base_imu_back.getOrigin().y();
-        tf_back.transform.translation.z = T_base_imu_back.getOrigin().z();
-        tf_back.transform.rotation = tf2::toMsg(T_base_imu_back.getRotation());
-        static_tfs.push_back(tf_back);
-
-        tf_static_broadcaster_->sendTransform(static_tfs);
+        // --- TF: odom → base_link ---
+        geometry_msgs::msg::TransformStamped tf;
+        tf.header.stamp = msg->header.stamp;
+        tf.header.frame_id = "odom";
+        tf.child_frame_id = "base_link";
+        tf.transform.translation.x = ex;
+        tf.transform.translation.y = ey;
+        tf.transform.translation.z = ez;
+        tf.transform.rotation.x = eqx;
+        tf.transform.rotation.y = eqy;
+        tf.transform.rotation.z = eqz;
+        tf.transform.rotation.w = ew;
+        tf_broadcaster_->sendTransform(tf);
     }
 
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-    
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
-    std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_broadcaster_;
 
-    tf2::Transform T_imu_front_base_;
-    tf2::Transform T_imu_back_base_;
-    tf2::Transform T_ov_to_ros_;
+    bool first_msg_ = true;
+    double init_ex_ = 0, init_ey_ = 0, init_ez_ = 0;
+    double qcw_ = 1, qcx_ = 0, qcy_ = 0, qcz_ = 0;  // body correction quat
+    rclcpp::Time last_print_{0, 0, RCL_ROS_TIME};
 };
 
 int main(int argc, char * argv[])

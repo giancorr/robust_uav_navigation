@@ -3,7 +3,7 @@ verbosity: "INFO"
 use_fej: true
 integration: "rk4"
 use_stereo: false
-max_cameras: 2
+max_cameras: 1
 calib_cam_extrinsics: false
 calib_cam_intrinsics: false
 calib_cam_timeoffset: false
@@ -18,17 +18,20 @@ gravity_mag: 9.81
 feat_rep_msckf: "GLOBAL_3D"
 feat_rep_slam: "ANCHORED_MSCKF_INVERSE_DEPTH"
 feat_rep_aruco: "ANCHORED_MSCKF_INVERSE_DEPTH"
+
 try_zupt: true
 zupt_chi2_multipler: 0
 zupt_max_velocity: 0.10
 zupt_noise_multiplier: 50
 zupt_max_disparity: 1.5
 zupt_only_at_beginning: false
+
 init_window_time: 2.0
 init_imu_thresh: 2.5
 init_max_disparity: 10.0
 init_max_features: 50
-init_dyn_use: false
+
+init_dyn_use: true
 init_dyn_mle_opt_calib: true
 init_dyn_mle_max_iter: 50
 init_dyn_mle_max_time: 0.05
@@ -42,12 +45,15 @@ init_dyn_inflation_ba: 100
 init_dyn_min_rec_cond: 1e-12
 init_dyn_bias_g: [ 0.0, 0.0, 0.0 ]
 init_dyn_bias_a: [ 0.0, 0.0, 0.0 ]
+
 record_timing_information: false
-record_timing_filepath: "/tmp/traj_timing_multicam.txt"
+record_timing_filepath: "/tmp/traj_timing_front.txt"
+
 save_total_state: false
-filepath_est: "/tmp/ov_estimate_multicam.txt"
-filepath_std: "/tmp/ov_estimate_std_multicam.txt"
+filepath_est: "/tmp/ov_estimate_front.txt"
+filepath_std: "/tmp/ov_estimate_std_front.txt"
 filepath_gt: "/tmp/ov_groundtruth.txt"
+
 use_klt: true
 num_pts: 300
 fast_threshold: 20
@@ -59,17 +65,20 @@ track_frequency: 31.0
 downsample_cameras: false
 num_opencv_threads: 4
 histogram_method: "HISTOGRAM"
+
 use_aruco: false
 num_aruco: 1024
 downsize_aruco: true
+
 up_msckf_sigma_px: 2
 up_msckf_chi2_multipler: 1
 up_slam_sigma_px: 2
 up_slam_chi2_multipler: 1
 up_aruco_sigma_px: 1
 up_aruco_chi2_multipler: 1
+
 use_mask: true
 mask0: "mask_t265_cam0.png"
-mask1: "mask_t265_cam0.png"
-relative_config_imu: "kalibr_imu_chain_multicam.yaml"
-relative_config_imucam: "kalibr_imucam_chain_multicam.yaml"
+
+relative_config_imu: "t265_kalibr_front_cam_imu-imu.yaml"
+relative_config_imucam: "kalibr_imucam_chain_front.yaml"

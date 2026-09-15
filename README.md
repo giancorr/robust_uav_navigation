@@ -27,12 +27,43 @@ This repository provides a complete ROS2 (Humble) environment for tracking odome
    ```bash
    colcon build --packages-select odometry_tracker openvins_bringup
    ```
-3. Run the Dual Session:
+3. Run a TMUX Session:
    ```bash
-   tmux -u new-session -d -s dual_session "cd /root/ws; . install/setup.bash; ros2 launch openvins_bringup launch_openvins_dual.launch.py"
-   tmux attach -t dual_session
+   cd ~/ros2_ws
+   tmuxp load src/pkg/babyk_drone_manager/utils/exploration_optitrack.yml
    ```
-   (Or use the provided `dual_session.yml` with tmuxinator).
+   (You can replace `exploration_optitrack.yml` with any other available session config depending on your needs, e.g., `flight_session.yml`, `session.yml`, etc.)
+   
+## Available TMUX Profiles
+
+Inside the `src/pkg/babyk_drone_manager/utils/` folder, you will find several `.yml` configurations. They are designed for `tmuxp` and allow you to quickly spawn the exact stack you need. They can be grouped by purpose:
+
+### 1. Basic VIO & Estimation
+These profiles focus *purely* on camera tracking and state estimation (no autonomous flight components).
+- **`session.yml`**: Runs a single OpenVINS instance (Front camera) without EKF. Good for basic debugging.
+- **`single_ekf_session.yml`**: Single OpenVINS instance smoothed by the Extended Kalman Filter.
+- **`dual_session.yml`**: Runs both Front and Back OpenVINS instances, fused together by the EKF.
+
+### 2. Basic Flight Setup
+These profiles launch VIO alongside the MAVROS/MicroXRCE DDS bridge for basic manual/stabilized flight.
+- **`flight_session.yml`**: Standard real-world flight (Dual VIO + PX4 Bridge).
+- **`flight_session_back.yml`**: Flight relying exclusively on the back camera.
+- **`flight_session_optitrack.yml`**: Injects OptiTrack motion capture data instead of VIO. Perfect for ground-truth testing.
+- **`flight_session_stereo_ov.yml`**: Uses OpenVINS in a stereo configuration (if applicable) instead of mono.
+
+### 3. Full Autonomous Exploration & Recovery
+These profiles launch the complete autonomous stack: Path Planner, Trajectory Interpolator, RTABMap, and the **VIO Recovery FSM**.
+- **`exploration.yml`**: The standard full stack for real-world autonomous exploration.
+- **`exploration_optitrack.yml`**: Full autonomous stack using OptiTrack for localization. Excellent for testing the VIO Recovery FSM safely without risking a crash due to actual VIO loss.
+- **`exploration_back.yml` / `exploration_stereo.yml`**: Exploration using specific camera configurations.
+- **`hardware_exploration.yml`**: Full hardware-in-the-loop autonomous exploration.
+- **`sewer_exploration.yml` / `warehouse_exploration.yml`**: Exploration profiles with parameters explicitly tuned for narrow/specific environments.
+
+### 4. System Manager & Simulation
+These profiles leverage the `babyk_drone_manager` to orchestrate high-level behaviors and simulate environments.
+- **`simulation.yml`**: Full PX4 SITL simulation (Gazebo). Launches virtual cameras, RTABMap, and the `autonomous_test_node` to randomly send goals and test the entire stack.
+- **`flight.yml`**: The real-world counterpart for the system manager. Launches the full navigation stack and handles centralized commands (takeoff, land, flyto).
+- **`test_open_box.yml`**: A utility profile strictly used to test the PX4 actuator commands for the marker-dropping servo.
 
 ## Frame Definitions
 - `global`: The absolute origin `(0,0,0)` where the system initializes.

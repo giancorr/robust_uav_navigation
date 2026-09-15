@@ -2,9 +2,15 @@ from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
+    remap_arg = DeclareLaunchArgument(
+        'remap_back_to_front',
+        default_value='false',
+        description='Remap /back/base_link_odom to /front/base_link_odom for single back camera mode'
+    )
     
     # EKF parameters file path
     ekf_config_path = PathJoinSubstitution(
@@ -12,12 +18,25 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        # 1. Converter: IMU odometry to base_link (ENU Version)
+        remap_arg,
+
+        # 1a. Converter (Remapped mode for single back camera)
         Node(
             package='odometry_tracker',
             executable='odom_to_baselink_enu',
             name='odom_to_baselink_enu',
-            output='screen'
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('remap_back_to_front')),
+            remappings=[('/back/base_link_odom', '/front/base_link_odom')]
+        ),
+
+        # 1b. Converter (Standard mode for dual cameras)
+        Node(
+            package='odometry_tracker',
+            executable='odom_to_baselink_enu',
+            name='odom_to_baselink_enu',
+            output='screen',
+            condition=UnlessCondition(LaunchConfiguration('remap_back_to_front'))
         ),
         
         # 2. EKF Node from robot_localization
@@ -51,7 +70,7 @@ def generate_launch_description():
                 {'px4_odom_frame_id': 'odom'},
                 {'vio_desired_parent_frame_id': 'odom'},
                 {'publish_tf': False}, # EKF already publishes odom -> base_link
-                {'is_already_ned': False} # Our input from EKF is ENU, let px4_tf_pub convert it to NED
+                {'odom_child_is_not_base_link': False}
             ]
         )
     ])

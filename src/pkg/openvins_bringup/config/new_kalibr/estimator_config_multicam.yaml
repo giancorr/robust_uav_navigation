@@ -71,5 +71,5 @@ up_aruco_chi2_multipler: 1
 use_mask: true
 mask0: "mask_t265_cam0.png"
 mask1: "mask_t265_cam0.png"
-relative_config_imu: "kalibr_imu_chain_multicam.yaml"
+relative_config_imu: "t265_kalibr_front_cam_imu-imu.yaml"
 relative_config_imucam: "kalibr_imucam_chain_multicam.yaml"

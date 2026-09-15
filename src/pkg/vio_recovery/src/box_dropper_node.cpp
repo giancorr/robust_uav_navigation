@@ -24,14 +24,23 @@ public:
             std::bind(&BoxDropperNode::drop_callback, this, std::placeholders::_1));
 
         RCLCPP_INFO(this->get_logger(), "BoxDropperNode initialized. Waiting for /command/drop_marker");
+        
+        // Chiudi subito lo scatolo all'avvio
+        init_timer_ = this->create_wall_timer(1000ms, [this]() {
+            RCLCPP_INFO(this->get_logger(), "Box initialized to CLOSED state.");
+            send_peripheral(-1.0f); // 1.0 chiude meccanicamente il servo
+            init_timer_->cancel();
+        });
     }
 
 private:
     rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr cmd_pub_;
     rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr drop_sub_;
+    rclcpp::TimerBase::SharedPtr init_timer_;
     
     // Per evitare aperture multiple accidentali
     std::atomic<bool> is_dropping_{false};
+    std::atomic<int> drop_count_{0};
 
     void drop_callback(const std_msgs::msg::Bool::SharedPtr msg)
     {
@@ -39,15 +48,16 @@ private:
             // Avviamo un thread asincrono per l'apertura in modo da non bloccare il callback
             std::thread([this]() {
                 RCLCPP_INFO(this->get_logger(), "Box opened.");
-                send_peripheral(-1.0f);
+                send_peripheral(1.0f); // -1.0 apre meccanicamente il servo
                 
-                // Attendi 2.0 secondi come da parametro hardcoded concordato
-                std::this_thread::sleep_for(2000ms);
+                // Attendi 0.5 secondi come richiesto (massimo mezzo secondo)
+                std::this_thread::sleep_for(500ms);
                 
                 RCLCPP_INFO(this->get_logger(), "Box closed.");
-                send_peripheral(1.0f);
+                send_peripheral(-1.0f); // 1.0 chiude meccanicamente il servo
                 
-                // Resettiamo il flag così può essere triggerato di nuovo in futuro
+                // Cooldown: impedisce riaperture multiple per almeno 1 secondo
+                std::this_thread::sleep_for(1000ms);
                 is_dropping_ = false;
             }).detach();
         }

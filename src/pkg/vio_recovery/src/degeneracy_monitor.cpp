@@ -1,6 +1,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/bool.hpp>
+#include <px4_msgs/msg/vehicle_odometry.hpp>
 #include <cmath>
 
 class DegeneracyMonitor : public rclcpp::Node {
@@ -16,13 +18,14 @@ public:
     DegeneracyMonitor() : Node("degeneracy_monitor"), current_state_(VioState::CONSISTENT) {
         
         // Params, Subscribers and Publishers
-        this->declare_parameter<double>("kx1", 40.0);
-        this->declare_parameter<double>("ky1", 40.0);
-        this->declare_parameter<double>("kz1", 70.0);
-        this->declare_parameter<double>("kx2", 60.0);
-        this->declare_parameter<double>("ky2", 60.0);
-        this->declare_parameter<double>("kz2", 90.0);
-        this->declare_parameter<double>("delta_t", 0.4);
+        this->declare_parameter<double>("kx1", 400.0);
+        this->declare_parameter<double>("ky1", 400.0);
+        this->declare_parameter<double>("kz1", 300.0);
+        this->declare_parameter<double>("kx2", 500.0);
+        this->declare_parameter<double>("ky2", 500.0);
+        this->declare_parameter<double>("kz2", 400.0);
+        this->declare_parameter<double>("delta_t", 0.01);
+        this->declare_parameter<double>("startup_grace_period", 10.0);
         
         this->declare_parameter<double>("stagnation_epsilon", 1e-6);
         this->declare_parameter<int>("max_stagnation_counts", 5);
@@ -34,15 +37,39 @@ public:
         this->get_parameter("ky2", ky2_);
         this->get_parameter("kz2", kz2_);
         this->get_parameter("delta_t", delta_t_);
+        this->get_parameter("startup_grace_period", startup_grace_period_);
         this->get_parameter("stagnation_epsilon", eps_);
         this->get_parameter("max_stagnation_counts", max_stagnation_);
 
         sub_degen_ = this->create_subscription<std_msgs::msg::Float32MultiArray>(
-            "/ov_msckf/degen_factor", 10,
+            "/back/degen_factor", 10,
             std::bind(&DegeneracyMonitor::degen_callback, this, std::placeholders::_1));
 
         pub_health_ = this->create_publisher<std_msgs::msg::String>("/vio_health_status", 10);
         
+        sub_takeoff_ = this->create_subscription<std_msgs::msg::Bool>(
+            "/autonomous_node/takeoff_completed", 10,
+            [this](const std_msgs::msg::Bool::SharedPtr msg) {
+                if (msg->data && !takeoff_completed_) {
+                    takeoff_time_ = this->now();
+                }
+                takeoff_completed_ = msg->data;
+            });
+        
+        // Use best effort QoS for PX4 topics
+        rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
+        auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
+        
+        sub_odom_ = this->create_subscription<px4_msgs::msg::VehicleOdometry>(
+            "/fmu/out/vehicle_odometry", qos,
+            [this](const px4_msgs::msg::VehicleOdometry::SharedPtr msg) {
+                current_x_ = msg->position[0];
+                current_y_ = msg->position[1];
+            });
+        
+        takeoff_completed_ = false;
+        current_x_ = 0.0;
+        current_y_ = 0.0;
         last_x_ = 0.0; 
         last_y_ = 0.0; 
         last_z_ = 0.0;
@@ -82,6 +109,18 @@ private:
         // If eigenvaues are low or stagnant, VIO is degenerated
         bool is_degenerated = (lambda_x < kx1_) || (lambda_y < ky1_) || (lambda_z < kz1_) || 
                               (stagnation_counter_ >= max_stagnation_);
+        
+        if (!takeoff_completed_ || (now - takeoff_time_).seconds() < startup_grace_period_ || current_y_ <= 0.0) {
+            is_degenerated = false;
+        }
+        
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, 
+                             "Degen: %d | Takeoff: %d | Grace: %.1f/%.1f | Y: %.2f (Block? %d)", 
+                             ((lambda_x < kx1_) || (lambda_y < ky1_) || (lambda_z < kz1_) || (stagnation_counter_ >= max_stagnation_)),
+                             takeoff_completed_, 
+                             (takeoff_completed_ ? (now - takeoff_time_).seconds() : 0.0), startup_grace_period_, 
+                             current_y_, 
+                             (!takeoff_completed_ || (now - takeoff_time_).seconds() < startup_grace_period_ || current_y_ <= 0.0));
         
         bool is_recovered = (lambda_x > kx2_) && (lambda_y > ky2_) && (lambda_z > kz2_) && !is_stagnant;
 
@@ -135,14 +174,19 @@ private:
 
     double kx1_, ky1_, kz1_;
     double kx2_, ky2_, kz2_;
-    double delta_t_, eps_;
+    double delta_t_, eps_, startup_grace_period_;
     int max_stagnation_, stagnation_counter_;
     float last_x_, last_y_, last_z_;
+    double current_x_, current_y_;
+    bool takeoff_completed_;
     
     VioState current_state_;
     rclcpp::Time state_change_start_time_;
+    rclcpp::Time takeoff_time_;
 
     rclcpp::Subscription<std_msgs::msg::Float32MultiArray>::SharedPtr sub_degen_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr sub_takeoff_;
+    rclcpp::Subscription<px4_msgs::msg::VehicleOdometry>::SharedPtr sub_odom_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr pub_health_;
 };
 

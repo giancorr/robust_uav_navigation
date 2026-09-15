@@ -32,7 +32,7 @@ include_directories(
 )
 
 add_executable(degeneracy_monitor src/degeneracy_monitor.cpp)
-ament_target_dependencies(degeneracy_monitor rclcpp std_msgs)
+ament_target_dependencies(degeneracy_monitor rclcpp std_msgs nav_msgs px4_msgs)
 
 add_executable(vio_recovery_fsm src/vio_recovery_fsm.cpp)
 ament_target_dependencies(vio_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)

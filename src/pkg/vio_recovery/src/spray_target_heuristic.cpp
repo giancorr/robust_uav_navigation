@@ -39,7 +39,7 @@ public:
         auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         sub_odom_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/ov_msckf/odomimu", 10,
+            "/back/odomimu", 10,
             [this](const nav_msgs::msg::Odometry::SharedPtr msg) {
                 current_x_ = msg->pose.pose.position.x;
                 current_y_ = msg->pose.pose.position.y;
@@ -52,7 +52,7 @@ public:
             });
 
         sub_points_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            "/ov_msckf/points_slam", 10,
+            "/back/points_slam", 10,
             std::bind(&SprayTargetHeuristic::points_callback, this, _1));
 
         eval_timer_ = this->create_wall_timer(

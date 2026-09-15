@@ -206,8 +206,8 @@ void VioRecoveryFSM::wrench_callback(const geometry_msgs::msg::WrenchStamped::Sh
 
         auto now = this->now();
         auto elapsed = (now - state_entry_time_).seconds();
-        if (elapsed >= 0.5 && force_magnitude >= impact_force_threshold_) {
-            RCLCPP_INFO(this->get_logger(), "[STRAFE] Wall impact detected! Force: %.2f N", force_magnitude);
+        if (elapsed >= 0.5 && std::abs(fy) >= impact_force_threshold_) {
+            RCLCPP_INFO(this->get_logger(), "[STRAFE] Wall impact detected! Force Y: %.2f N", fy);
             impact_detected_ = true;
             
             // Calculate parallel swipe direction from impact normal
@@ -388,7 +388,8 @@ void VioRecoveryFSM::fsm_loop() {
             auto elapsed = (now - state_entry_time_).seconds();
 
             // Compute yaw error (same logic as controller)
-            double target_yaw_aligned = (std::cos(recovery_start_yaw_) > 0) ? 0.0 : M_PI;
+            // Arrotonda allo step di 90 gradi (M_PI/2) più vicino per supportare corridoi in qualsiasi direzione cardinale
+            double target_yaw_aligned = std::round(recovery_start_yaw_ / (M_PI / 2.0)) * (M_PI / 2.0);
             double yaw_err = current_yaw_ - target_yaw_aligned;
             while (yaw_err >  M_PI) yaw_err -= 2.0 * M_PI;
             while (yaw_err < -M_PI) yaw_err += 2.0 * M_PI;
@@ -542,7 +543,13 @@ void VioRecoveryFSM::fsm_loop() {
 
                     current_state_    = DroneState::NAVIGATE;
                     state_entry_time_ = this->now();
-                    RCLCPP_INFO(this->get_logger(), "[RETURN] Finished → NAVIGATE");
+                    
+                    // Riarmare automaticamente la FSM alla fine della routine
+                    // in modo che se la VIO è ancora inconsistente, possa ritentare
+                    armed_ = true;
+                    consecutive_consistent_count_ = 0;
+                    
+                    RCLCPP_INFO(this->get_logger(), "[RETURN] Finished → NAVIGATE (FSM Re-armed)");
                 }
             }
             break;

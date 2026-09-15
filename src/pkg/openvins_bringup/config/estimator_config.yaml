@@ -9,7 +9,7 @@ calib_cam_intrinsics: true
 calib_cam_timeoffset: true
 calib_imu_intrinsics: false
 calib_imu_g_sensitivity: false
-max_clones: 11
+max_clones: 13
 max_slam: 50
 max_slam_in_update: 25
 max_msckf_in_update: 40
@@ -49,8 +49,8 @@ filepath_est: "/tmp/ov_estimate.txt"
 filepath_std: "/tmp/ov_estimate_std.txt"
 filepath_gt: "/tmp/ov_groundtruth.txt"
 use_klt: true
-num_pts: 200
-fast_threshold: 30
+num_pts: 300
+fast_threshold: 20
 grid_x: 5
 grid_y: 5
 min_px_dist: 15
@@ -62,9 +62,9 @@ histogram_method: "HISTOGRAM"
 use_aruco: false
 num_aruco: 1024
 downsize_aruco: true
-up_msckf_sigma_px: 1
+up_msckf_sigma_px: 2
 up_msckf_chi2_multipler: 1
-up_slam_sigma_px: 1
+up_slam_sigma_px: 2
 up_slam_chi2_multipler: 1
 up_aruco_sigma_px: 1
 up_aruco_chi2_multipler: 1

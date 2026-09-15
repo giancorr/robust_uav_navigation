@@ -87,7 +87,8 @@ private:
 
         // ── Yaw controller: active during STRAFE, SETTLE, and RETURN ──
         if (current_state_ == 2 || current_state_ == 3 || current_state_ == 5) {
-            double target_yaw_aligned = (std::cos(target_yaw_) > 0) ? 0.0 : M_PI;
+            // Arrotonda allo step di 90 gradi (M_PI/2) più vicino per supportare corridoi in qualsiasi direzione cardinale
+            double target_yaw_aligned = std::round(target_yaw_ / (M_PI / 2.0)) * (M_PI / 2.0);
             double yaw_err = current_yaw_ - target_yaw_aligned;
             while (yaw_err >  M_PI) yaw_err -= 2.0 * M_PI;
             while (yaw_err < -M_PI) yaw_err += 2.0 * M_PI;

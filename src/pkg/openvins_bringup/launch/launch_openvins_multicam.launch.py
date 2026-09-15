@@ -2,12 +2,17 @@ import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     bringup_dir = get_package_share_directory('openvins_bringup')
 
-    # --- Single Instance (Multi-Camera) ---
-    config_path = os.path.join(bringup_dir, 'config', 'estimator_config_multicam.yaml')
+    config_path_arg = DeclareLaunchArgument(
+        'config_path',
+        default_value=os.path.join(bringup_dir, 'config', 'estimator_config_multicam.yaml'),
+        description='Path to the OpenVINS estimator config YAML file'
+    )
     
     multicam_node = Node(
         package='ov_msckf',
@@ -18,13 +23,17 @@ def generate_launch_description():
             {"verbosity": "INFO"},
             {"use_stereo": False},
             {"max_cameras": 2},
-            {"config_path": config_path},
+            {"config_path": LaunchConfiguration('config_path')},
         ],
         remappings=[
-            # We don't remap image topics here because kalibr_imucam_chain_multicam.yaml 
-            # specifies /cam0/fisheye1/image_raw and /cam1/fisheye1/image_raw directly.
-            # We also don't remap the IMU topic for the same reason.
+            # Camera topics: only fisheye1 for both cameras
+            ('/t265/fisheye1/image_raw',   '/cam0/fisheye1/image_raw'),
+            ('/t265_1/fisheye1/image_raw', '/cam1/fisheye1/image_raw'),
+            # IMU: use front camera (cam0) as primary IMU
+            ('/t265/imu',                  '/cam0/imu'),
+            # Output odometry topic
+            ('odomimu',                    '/ov_msckf/odomimu'),
         ]
     )
 
-    return LaunchDescription([multicam_node])
+    return LaunchDescription([config_path_arg, multicam_node])
