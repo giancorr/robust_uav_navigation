@@ -36,8 +36,8 @@ def generate_launch_description():
 
         Node(
             package='vio_recovery',
-            executable='vio_recovery_controller',
-            name='vio_recovery_controller_node',
+            executable='vio_recovery_aligner',
+            name='vio_recovery_aligner_node',
             output='screen',
             parameters=[config_file]
         ),

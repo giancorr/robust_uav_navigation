@@ -21,7 +21,7 @@ The package is composed of the following key nodes:
 3.  **`degeneracy_monitor_node`**: Analyzes the VIO state and publishes a health status (`HEALTHY` or `INCONSISTENT`).
 4.  **`external_wrench_estimator_node`**: Calculates physical impacts by observing the discrepancy between commanded thrust and actual drone acceleration.
 5.  **`drop_spawner_node` / `swipe_spawner_node`**: Simulation-only nodes that use ROS 2 services to spawn visual markers dynamically inside Gazebo.
-6.  **`spray_target_heuristic_node`**: A heuristic vision node to decide the safest direction (LEFT or RIGHT) to strafe when initiating the recovery sequence.
+6.  **`target_heuristic_node`**: A heuristic vision node to decide the safest direction (LEFT or RIGHT) to strafe when initiating the recovery sequence.
 
 ## ⚙️ Configuration
 

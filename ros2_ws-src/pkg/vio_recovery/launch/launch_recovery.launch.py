@@ -36,8 +36,8 @@ def generate_launch_description():
         
         Node(
             package='vio_recovery',
-            executable='vio_recovery_controller',
-            name='vio_recovery_controller_node',
+            executable='vio_recovery_aligner',
+            name='vio_recovery_aligner_node',
             output='screen',
             parameters=[config_file]
         ),
@@ -94,11 +94,11 @@ def generate_launch_description():
             parameters=[config_file]
         ),
 
-        # Spray heuristic
+        # Target heuristic
         Node(
             package='vio_recovery',
-            executable='spray_heuristic_node',
-            name='spray_heuristic_node',
+            executable='target_heuristic_node',
+            name='target_heuristic_node',
             output='screen',
             parameters=[config_file]
         ),

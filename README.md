@@ -14,12 +14,12 @@ uav_motion_stack/
 │   ├── open_vins/                  # Visual-Inertial Odometry estimator (personal fork)
 │   ├── path_planner/               # Global path planning and exploration logic
 │   ├── traj_interp/                # Trajectory interpolator for smooth setpoint generation
+│   ├── vio_mapping/                # Probabilistic OctoMap generation from OpenVINS data
 │   └── vio_recovery/               # Core recovery logic, tactile odometry, and FSM
 ├── docker/               # Docker configurations
 ├── models/               # Custom Gazebo models
 ├── worlds/               # Gazebo worlds for simulation
-├── PX4-Autopilot/        # PX4 firmware 
-└── PX4_neabotics/        # PX4 custom firmware 
+└── PX4_neabotics/        # PX4 custom firmware (Neabotics fork)
 ```
 
 ## System Requirements
@@ -40,14 +40,9 @@ git clone --recursive https://github.com/giancorr/robust_uav_navigation.git -b s
 cd robust_uav_navigation
 ```
 
-### 2. Clone PX4 Firmware
+### 2. Clone PX4 Neabotics Firmware
 ```bash
-git clone --single-branch -b release/1.14 git@github.com:PX4/PX4-Autopilot.git --recursive
-```
-
-### 3. Clone PX4 Neabotics
-```bash
-git clone --single-branch -b feature/diffgains_fix_servo_k https://github.com/Prisma-Drone-Team/Px4_hcore_autopilot.git PX4_neabotics --recursive
+git clone --single-branch -b vio https://github.com/Prisma-Drone-Team/Px4_hcore_autopilot.git PX4_neabotics --recursive
 ```
 
 ### 4. Build Docker Image
@@ -90,9 +85,17 @@ source install/setup.bash
 ```
 
 ## Usage in simulation with TMUX
+
+### 🏢 Corridor Scenario
 ```bash
 cd ros2_ws
 tmuxp load src/pkg/babyk_drone_manager/utils/exploration.yml
+```
+
+### 🕳️ Sewer Scenario
+```bash
+cd ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/sewer_simulation.yml
 ```
 
 ## Package Documentation
@@ -104,13 +107,12 @@ Each ROS2 package used in this system provides specific functionality for the VI
 - **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
 - **path_planner**: Calculates global collision-free paths for autonomous exploration.
 - **traj_interp**: Interpolates global paths into smooth local trajectory setpoints for PX4.
+- **vio_mapping**: Generates a probabilistic OctoMap from the point cloud data published by OpenVINS, used for mapping and collision avoidance.
 - **vio_recovery**: The core novel package containing the recovery Finite State Machine, tactile odometry, and hardware fallback logic.
 
 ## Important Notes
 
-**PX4 Firmware**: The PX4-Autopilot and PX4_neabotics firmwares must be downloaded separately and are used exclusively for SITL simulation. They are not required for deployment on real hardware.
-
-**PX4_neabotics**: This firmware is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics.
+**PX4_neabotics**: This firmware (Neabotics fork, `vio` branch) is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics. It must be downloaded separately and is used exclusively for SITL simulation; it is not required for deployment on real hardware.
 
 ---
 
@@ -126,7 +128,7 @@ Implements advanced fallback mechanisms when VIO (OpenVINS) becomes unstable or 
 - **Tactile Odometry**: Provides fallback geometric odometry based on physical contact constraints (unilateral projection) when visual tracking is lost.
 - **External Wrench Estimator**: Calculates external forces and torques based on drone dynamics, used to detect wall contact.
 - **Degeneracy Monitor**: Monitors OpenVINS eigenvalues to preemptively detect tracking degradation.
-- **Spray Target Heuristic**: Dynamically selects targets for the spray mission based on visual feature count balance.
+- **Target Heuristic**: Dynamically selects the strafe direction (LEFT or RIGHT) based on visual feature count balance and proximity to walls.
 - **Surface & Aruco Detectors**: Vision nodes to assist with relocalization and target finding.
 
 ### 👓 open_vins

@@ -10,9 +10,9 @@
 
 using namespace std::chrono_literals;
 
-class VioRecoveryController : public rclcpp::Node {
+class VioRecoveryAligner : public rclcpp::Node {
 public:
-    VioRecoveryController() : Node("vio_recovery_controller") {
+    VioRecoveryAligner() : Node("vio_recovery_aligner") {
         
         // Subscriptions
         sub_state_ = this->create_subscription<std_msgs::msg::Int32>(
@@ -65,7 +65,7 @@ public:
         pub_vel_ = this->create_publisher<geometry_msgs::msg::Twist>("/teleop/velocity_increments", 10);
 
         last_time_ = this->now();
-        timer_ = this->create_wall_timer(20ms, std::bind(&VioRecoveryController::control_loop, this));
+        timer_ = this->create_wall_timer(20ms, std::bind(&VioRecoveryAligner::control_loop, this));
         
         RCLCPP_INFO(this->get_logger(), "VIO Recovery Controller Initialized (50Hz)");
     }
@@ -139,7 +139,7 @@ private:
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<VioRecoveryController>());
+    rclcpp::spin(std::make_shared<VioRecoveryAligner>());
     rclcpp::shutdown();
     return 0;
 }

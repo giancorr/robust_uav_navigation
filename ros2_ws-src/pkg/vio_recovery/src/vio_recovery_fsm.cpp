@@ -356,7 +356,7 @@ void VioRecoveryFSM::fsm_loop() {
         case DroneState::STRAFE: {
             if (!impact_detected_) {
                 // Command open-loop lateral movement.
-                // The vio_recovery_controller handles PI yaw alignment in parallel.
+                // The vio_recovery_aligner handles PI yaw alignment in parallel.
                 double vy = (strafe_direction_ == "LEFT") ? strafe_velocity_ : -strafe_velocity_;
                 send_velocity(0.0, vy, 0.0, 0.0);
             } else {

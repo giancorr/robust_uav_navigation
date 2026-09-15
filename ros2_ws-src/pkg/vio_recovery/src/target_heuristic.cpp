@@ -8,10 +8,10 @@
 
 using std::placeholders::_1;
 
-class SprayTargetHeuristic : public rclcpp::Node
+class TargetHeuristic : public rclcpp::Node
 {
 public:
-    SprayTargetHeuristic() : Node("spray_heuristic_node")
+    TargetHeuristic() : Node("target_heuristic_node")
     {
         this->declare_parameter<double>("max_reachable_dist", 3.0); 
         this->declare_parameter<int>("min_features_critical", 30);
@@ -24,10 +24,10 @@ public:
         decision_pub_ = this->create_publisher<std_msgs::msg::String>("/decision/spray_target", 10);
 
         sub_health_ = this->create_subscription<std_msgs::msg::String>(
-            "/vio_health_status", 10, std::bind(&SprayTargetHeuristic::health_callback, this, _1));
+            "/vio_health_status", 10, std::bind(&TargetHeuristic::health_callback, this, _1));
 
         sub_features_ = this->create_subscription<vio_recovery::msg::FeatureCount>(
-            "/vio_help/feature_distribution", 10, std::bind(&SprayTargetHeuristic::feature_callback, this, _1));
+            "/vio_help/feature_distribution", 10, std::bind(&TargetHeuristic::feature_callback, this, _1));
 
         sub_fsm_state_ = this->create_subscription<std_msgs::msg::String>(
             "/fsm/current_state", 10,
@@ -53,10 +53,10 @@ public:
 
         sub_points_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
             "/ov_msckf/points_slam", 10,
-            std::bind(&SprayTargetHeuristic::points_callback, this, _1));
+            std::bind(&TargetHeuristic::points_callback, this, _1));
 
         eval_timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(100), std::bind(&SprayTargetHeuristic::decide, this));
+            std::chrono::milliseconds(100), std::bind(&TargetHeuristic::decide, this));
 
         last_decision_time_ = this->now();
     }
@@ -203,7 +203,7 @@ private:
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<SprayTargetHeuristic>());
+    rclcpp::spin(std::make_shared<TargetHeuristic>());
     rclcpp::shutdown();
     return 0;
 }

@@ -41,8 +41,8 @@ ament_target_dependencies(vio_recovery_fsm rclcpp std_msgs nav_msgs geometry_msg
 add_executable(sewer_recovery_fsm src/sewer_recovery_fsm.cpp)
 ament_target_dependencies(sewer_recovery_fsm rclcpp std_msgs nav_msgs geometry_msgs tf2)
 
-add_executable(vio_recovery_controller src/vio_recovery_controller.cpp)
-ament_target_dependencies(vio_recovery_controller rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
+add_executable(vio_recovery_aligner src/vio_recovery_aligner.cpp)
+ament_target_dependencies(vio_recovery_aligner rclcpp std_msgs nav_msgs geometry_msgs px4_msgs)
 
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
@@ -80,8 +80,8 @@ ament_target_dependencies(wrench_estimator_node
   px4_msgs
 )
 
-add_executable(spray_heuristic_node src/spray_target_heuristic.cpp)
-ament_target_dependencies(spray_heuristic_node 
+add_executable(target_heuristic_node src/target_heuristic.cpp)
+ament_target_dependencies(target_heuristic_node 
   rclcpp 
   std_msgs 
   geometry_msgs
@@ -97,13 +97,13 @@ target_link_libraries(sewer_recovery_fsm ${cpp_typesupport_target})
 target_link_libraries(swipe_spawner ${cpp_typesupport_target})
 target_link_libraries(drop_spawner ${cpp_typesupport_target})
 target_link_libraries(feature_counter_node ${cpp_typesupport_target})
-target_link_libraries(spray_heuristic_node ${cpp_typesupport_target})
+target_link_libraries(target_heuristic_node ${cpp_typesupport_target})
 
 install(TARGETS
   degeneracy_monitor
   vio_recovery_fsm
   sewer_recovery_fsm
-  vio_recovery_controller
+  vio_recovery_aligner
   flight_odometry_filter
 
   swipe_spawner
@@ -112,7 +112,7 @@ install(TARGETS
   feature_counter_node
   flight_data_logger
   wrench_estimator_node
-  spray_heuristic_node
+  target_heuristic_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
