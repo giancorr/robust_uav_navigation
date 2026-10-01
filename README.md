@@ -1,4 +1,4 @@
-# UAV Motion Stack — `hardware` branch
+# Robust UAV Navigation
 
 Complete ROS 2 (Humble) autonomous flight stack for the **BabyK drone**, integrating real-time Visual-Inertial Odometry (OpenVINS), OptiTrack motion capture, PX4 autopilot, and a VIO Recovery FSM for robust navigation in challenging environments.
 
