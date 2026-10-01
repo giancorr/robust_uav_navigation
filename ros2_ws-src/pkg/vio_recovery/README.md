@@ -28,22 +28,53 @@ The package is composed of the following key nodes:
 
 ## ⚙️ Configuration
 
-The package behavior can be tuned via the `config/params.yaml` file. 
+Each scenario has its own parameter file in `config/` and a dedicated launch file in `launch/`. This mirrors the pattern used by the sewer scenario.
 
-Key parameters include:
+| Scenario | Params file | Launch file |
+|---|---|---|
+| 🏢 **Corridor** | `config/params_corridor.yaml` | `launch_corridor_recovery.launch.py` |
+| 🏭 **Warehouse** | `config/params_warehouse.yaml` | `launch_warehouse_recovery.launch.py` |
+| 🕳️ **Sewer** | `config/params_sewer.yaml` | `launch_sewer_recovery.launch.py` |
+
+The generic `params.yaml` and `launch_recovery.launch.py` still exist as a fallback, but **all TMUX sessions now reference the scenario-specific files**.
+
+### Key parameters per scenario
+
+**Corridor** (`params_corridor.yaml`) — narrow textured walls, full recovery:
+- `enable_recovery: true`
+- `enable_bottom: true` — drops ground markers
+- `trigger_on_potentially_inconsistent: true` — aggressive early trigger
+- `gazebo_world: "corridor"`
+
+**Warehouse** (`params_warehouse.yaml`) — open environment, walls far away:
+- `enable_recovery: true`
+- `enable_bottom: false` — no ground markers (open floor)
+- `trigger_on_potentially_inconsistent: false` — only triggers on full failure
+- `gazebo_world: "leonardo_race"`
+
+**Sewer** (`params_sewer.yaml`) — featureless pipe, dedicated FSM node:
+- Uses `sewer_recovery_fsm_node` instead of `vio_recovery_fsm_node`
+- `gazebo_world: "sewer"`
+
+Key parameters (common):
 *   `enable_recovery`: If `false`, the FSM ignores VIO failures entirely.
 *   `enable_lateral`: If `false`, skips the lateral wall swipe maneuver.
 *   `enable_bottom`: If `false`, skips the ground marker drop.
 *   `impact_force_threshold`: The force (in Newtons) required to trigger wall collision detection.
 *   `strafe_velocity` / `return_velocity`: Lateral speed (m/s) when searching for / retreating from a wall.
 *   `swipe_length` / `swipe_velocity`: Length (m) and speed (m/s) of the tactile sliding motion along the wall.
-*   `trigger_on_potentially_inconsistent`: If `true`, triggers recovery also on `POTENTIALLY_INCONSISTENT` state (not just full failure).
+*   `trigger_on_potentially_inconsistent`: If `true`, triggers recovery also on `POTENTIALLY_INCONSISTENT` state.
 
 ## 🛠️ Usage
 
 ### 🏢 Corridor scenario
 ```bash
-ros2 launch vio_recovery launch_recovery.launch.py
+ros2 launch vio_recovery launch_corridor_recovery.launch.py
+```
+
+### 🏭 Warehouse scenario
+```bash
+ros2 launch vio_recovery launch_warehouse_recovery.launch.py
 ```
 
 ### 🕳️ Sewer scenario
@@ -51,4 +82,4 @@ ros2 launch vio_recovery launch_recovery.launch.py
 ros2 launch vio_recovery launch_sewer_recovery.launch.py
 ```
 
-> **Note**: These launch files are typically started automatically by the TMUX session files (`exploration.yml` / `sewer_simulation.yml`) in the `babyk_drone_manager` package. Manual launching is only needed for debugging.
+> **Note**: These launch files are typically started automatically by the TMUX session files in `babyk_drone_manager/utils/`. Manual launching is only needed for debugging.

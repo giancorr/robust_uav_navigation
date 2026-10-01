@@ -1,25 +1,24 @@
 # ROBUST UAV NAVIGATION
 
-This repository contains tools and configurations for PX4 SITL (Software In The Loop) simulation, with a specific focus on robust recovery from Visual-Inertial Odometry (VIO) failures using tactile odometry and state machine logic.
+This repository contains the full software stack for autonomous UAV navigation and exploration, with a specific focus on robust recovery from Visual-Inertial Odometry (VIO) failures using tactile odometry and finite state machine logic. The stack has been validated both in Gazebo simulation and on real hardware (Intel RealSense T265 + OptiTrack).
 
 ## Architecture Overview
-
-The system consists of three main ROS2 packages:
 
 ```
 uav_motion_stack/
 ├── ros2_ws-src/                    # ROS2 workspace
-│   ├── babyk_drone_manager/        # Drone state management, TF and safety
-│   ├── drone_odometry/             # Odometry processing and conversion
+│   ├── babyk_drone_manager/        # Central mission manager: commands, safety, TF, GCS, logging
+│   ├── drone_odometry/             # Odometry processing and PX4 ENU interface
 │   ├── open_vins/                  # Visual-Inertial Odometry estimator (personal fork)
-│   ├── path_planner/               # Global path planning and exploration logic
-│   ├── traj_interp/                # Trajectory interpolator for smooth setpoint generation
-│   ├── vio_mapping/                # Probabilistic OctoMap generation from OpenVINS data
-│   └── vio_recovery/               # Core recovery logic, tactile odometry, and FSM
-├── docker/               # Docker configurations
-├── models/               # Custom Gazebo models
-├── worlds/               # Gazebo worlds for simulation
-└── PX4_neabotics/        # PX4 custom firmware (Neabotics fork)
+│   ├── optitrack_listener/         # OptiTrack/NatNet driver (real flight ground truth)
+│   ├── path_planner/               # Global 3D path planning (OMPL + FCL + OctoMap)
+│   ├── traj_interp/                # Trajectory interpolation and smooth setpoint generation
+│   ├── vio_mapping/                # Probabilistic OctoMap generation from OpenVINS features
+│   └── vio_recovery/               # VIO failure recovery FSM and tactile odometry
+├── docker/                         # Docker configurations
+├── models/                         # Custom Gazebo models
+├── worlds/                         # Gazebo worlds for simulation
+└── PX4_neabotics/                  # PX4 custom firmware (Neabotics fork, SITL only)
 ```
 
 ## System Requirements
@@ -27,12 +26,10 @@ uav_motion_stack/
 - **Docker**: For isolated development environment
 - **ROS2 Humble**: Robotics framework
 - **PX4 v1.14+**: Autopilot firmware
-- **Gazebo Garden**: 3D simulator
+- **Gazebo Garden**: 3D simulator (simulation only)
 - **Eigen3**: Mathematical library for matrix operations
 
 ## Installation and Setup
-
-A step by step series of examples that tell you how to get a development environment running:
 
 ### 1. Repository Clone
 ```bash
@@ -40,23 +37,23 @@ git clone --recursive https://github.com/giancorr/robust_uav_navigation.git -b s
 cd robust_uav_navigation
 ```
 
-### 2. Clone PX4 Neabotics Firmware
+### 2. Clone PX4 Neabotics Firmware (simulation only)
 ```bash
 git clone --single-branch -b vio https://github.com/Prisma-Drone-Team/Px4_hcore_autopilot.git PX4_neabotics --recursive
 ```
 
-### 4. Build Docker Image
+### 3. Build Docker Image
 ```bash
 cd docker
 docker build -t leo-img -f px4_humble_dockerfile.txt .
 ```
 
-### 5. Run Container
+### 4. Run Container
 ```bash
 ./run_cnt.sh
 ```
 
-### 6. Initialize Submodules
+### 5. Initialize Submodules
 ```bash
 git submodule update --init --recursive
 ```
@@ -66,7 +63,6 @@ git submodule update --init --recursive
 ### ROS2 Workspace Build
 ```bash
 cd ros2_ws
-source install/setup.bash
 colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
@@ -84,35 +80,69 @@ source install/setup.bash
 <depend>eigen3_cmake_module</depend>
 ```
 
-## Usage in simulation with TMUX
+## Usage (TMUX sessions)
 
-### 🏢 Corridor Scenario
+All scenarios are launched via `tmuxp` from inside the Docker container.
+
+### 🏭 Warehouse Exploration (simulation)
+
+Autonomous exploration of a large warehouse-like environment. The `warehouse_test_node` uses frontier-based goal selection driven by the live OctoMap built by `vio_mapping`, enabling the drone to autonomously navigate without pre-defined waypoints.
+
+```bash
+cd ros2_ws
+tmuxp load src/pkg/babyk_drone_manager/utils/warehouse_exploration.yml
+```
+
+**Config**: `open_vins/config/baby_k_warehouse/` · `vio_recovery/config/params_warehouse.yaml`
+
+### 🏢 Corridor Exploration (simulation)
+
+Fixed-waypoint exploration in a narrow corridor with VIO recovery enabled.
+
 ```bash
 cd ros2_ws
 tmuxp load src/pkg/babyk_drone_manager/utils/exploration.yml
 ```
 
-### 🕳️ Sewer Scenario
+**Config**: `open_vins/config/baby_k/` · `vio_recovery/config/params_corridor.yaml`
+
+### 🕳️ Sewer Exploration (simulation)
+
+Exploration in a featureless, dark pipe environment. Uses the most aggressive VIO recovery parameters.
+
 ```bash
 cd ros2_ws
-tmuxp load src/pkg/babyk_drone_manager/utils/sewer_simulation.yml
+tmuxp load src/pkg/babyk_drone_manager/utils/sewer_exploration.yml
 ```
+
+**Config**: `open_vins/config/baby_k_sewer/` · `vio_recovery/config/params_sewer.yaml`
+
+### ✈️ Real Flight (GCS)
+
+Ground Control Station session for real hardware flights. Connects to the drone over the network and monitors all key topics.
+
+```bash
+tmuxp load src/pkg/babyk_drone_manager/utils/gcs.yml
+```
+
+**Stack launched**: RViz · OptiTrack driver · Flight data logger · Topic monitors
 
 ## Package Documentation
 
-Each ROS2 package used in this system provides specific functionality for the VIO recovery pipeline:
-
-- **babyk_drone_manager**: Handles TF broadcasting, basic movement management, and general safety bounds.
-- **drone_odometry**: Provides odometry conversion and ground truth processing for the UAV.
-- **open_vins**: The MSCKF-based Visual-Inertial Odometry estimator used as the primary source of pose estimation.
-- **path_planner**: Calculates global collision-free paths for autonomous exploration.
-- **traj_interp**: Interpolates global paths into smooth local trajectory setpoints for PX4.
-- **vio_mapping**: Generates a probabilistic OctoMap from the point cloud data published by OpenVINS, used for mapping and collision avoidance.
-- **vio_recovery**: The core novel package containing the recovery Finite State Machine, tactile odometry, and hardware fallback logic.
+- **babyk_drone_manager**: Central mission manager. Handles high-level commands (`takeoff`, `flyto`, `land`), TF broadcasting, safety bounds, GCS TMUX sessions, and flight data logging.
+- **drone_odometry**: Provides odometry conversion and the PX4 ENU interface for the flight controller.
+- **open_vins**: MSCKF-based VIO estimator. Configured to output degeneracy eigenvalues consumed by `vio_recovery`. Drone-specific configs (T265, dual-camera) are maintained in `config/`.
+- **optitrack_listener**: NatNet SDK driver that publishes rigid body poses from Motive as `nav_msgs/Odometry` on `/optitrack/body_<ID>/odometry`. Used as ground truth during real flights.
+- **path_planner**: Global 3D collision-free path planning using OMPL (RRT*) and FCL. Reads the OctoMap from `vio_mapping` for obstacle representation.
+- **traj_interp**: Interpolates sparse waypoints from the path planner into a high-frequency stream of smooth trajectory setpoints for PX4 Offboard mode. Includes teleop integration.
+- **vio_mapping**: Builds a probabilistic OctoMap from OpenVINS point cloud features using a MonoSpheres-inspired pipeline. Supports dual-camera fusion. Used by the path planner and the warehouse explorer.
+- **vio_recovery**: The core novel package. Contains the recovery Finite State Machine (`NAVIGATE → STOP → STRAFE → SETTLE → SWIPE → RETURN`), tactile odometry, degeneracy monitor, and external wrench estimator.
 
 ## Important Notes
 
-**PX4_neabotics**: This firmware (Neabotics fork, `vio` branch) is specialized for tiltrotor drones and optimized for the Leonardo Drone Contest field, with specific improvements for tiltrotor flight dynamics. It must be downloaded separately and is used exclusively for SITL simulation; it is not required for deployment on real hardware.
+**PX4_neabotics**: This firmware (Neabotics fork, `vio` branch) is specialized for tiltrotor drones and used exclusively for SITL simulation; it is not required for real hardware.
+
+**Real hardware setup**: Real flights use an Intel RealSense T265 for VIO (via OpenVINS) and an OptiTrack motion capture system as ground truth. The `optitrack_listener` package publishes ground truth odometry, which is also fed to PX4 as visual odometry via `scripts/PX4_odom_publisher.py`.
 
 ---
 
@@ -124,34 +154,46 @@ Each ROS2 package used in this system provides specific functionality for the VI
 Implements advanced fallback mechanisms when VIO (OpenVINS) becomes unstable or degenerates due to lack of visual features.
 
 **Key Features:**
-- **VIO Recovery FSM (`vio_recovery_fsm`)**: Finite State Machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
-- **Tactile Odometry**: Provides fallback geometric odometry based on physical contact constraints (unilateral projection) when visual tracking is lost.
-- **External Wrench Estimator**: Calculates external forces and torques based on drone dynamics, used to detect wall contact.
+- **VIO Recovery FSM**: State machine handling Hover, Strafe, Swipe and Drop maneuvers when VIO fails.
+- **Tactile Odometry**: Fallback geometric odometry based on physical contact constraints (unilateral projection).
+- **External Wrench Estimator**: Calculates external forces/torques to detect wall contact.
 - **Degeneracy Monitor**: Monitors OpenVINS eigenvalues to preemptively detect tracking degradation.
-- **Target Heuristic**: Dynamically selects the strafe direction (LEFT or RIGHT) based on visual feature count balance and proximity to walls.
-- **Surface & Aruco Detectors**: Vision nodes to assist with relocalization and target finding.
+- **Target Heuristic**: Selects strafe direction (LEFT/RIGHT) based on visual feature count balance.
 
 ### 👓 open_vins
 **Visual Inertial Odometry Estimation (Personal Fork)**
 
-A state-of-the-art filter-based VIO system (Multi-State Constraint Kalman Filter). This is imported as a Git submodule pointing to a personal fork. In this stack, it is configured to output degeneracy metrics (eigenvalues) consumed by the `vio_recovery` package. Drone-specific configurations (like `baby_k`) are maintained directly within the `config/` directory of this fork for centralized tracking.
+A state-of-the-art MSCKF-based VIO system imported as a Git submodule. Configured to output degeneracy metrics consumed by `vio_recovery`. Supports dual fisheye cameras (T265 front + back).
 
 ### 🛡️ babyk_drone_manager
-**State management and safety**
+**Central Mission Manager**
 
-Monitors overall drone status and implements safety functions. Also contains the core TMUX simulation files (`fr_simulation.yml`) and TF publishers required to link the simulated Gazebo drone with the ROS2 TF tree and PX4 offboard control.
+Handles high-level flight commands, TF broadcasting, safety bounds, and all TMUX session files. Also contains:
+- `flight_data_logger`: C++ node that records all flight data (VIO, OptiTrack, PX4, FSM state, eigenvalues, wrenches) to the `flight_logs/` folder.
+- `warehouse_test_node`: Frontier-based autonomous exploration node that uses the live OctoMap to generate goals dynamically.
+- `exploration_node`: Fixed-waypoint exploration node for corridor and sewer scenarios.
+
+### 📡 optitrack_listener
+**OptiTrack / NatNet Ground Truth Driver**
+
+Connects to a Motive server via the NatNet SDK and publishes rigid body poses as `nav_msgs/Odometry` on `/optitrack/body_<ID>/odometry`.
 
 ### 📏 drone_odometry
-**Odometry Processing and Conversion**
+**Odometry Processing and PX4 ENU Interface**
 
-Responsible for handling various odometry sources, including ground truth conversion from simulation and sensor fusion data preparation, ensuring accurate localization data is available to the rest of the navigation stack.
+Handles odometry source conversion and TF publishing to make localization data available to the rest of the stack in ENU coordinates.
 
 ### 🗺️ path_planner
-**Autonomous Path Generation**
+**Autonomous 3D Path Generation**
 
-Responsible for global navigation and exploration. It generates high-level routes and collision-free paths based on map data or exploration goals, feeding them to the trajectory interpolator.
+Generates collision-free paths using OMPL (RRT*) and FCL. Reads obstacle maps from `vio_mapping` via OctoMap messages.
 
 ### 📈 traj_interp
 **Trajectory Interpolation**
 
-Takes the sparse waypoints provided by the path planner and interpolates them into a continuous, high-frequency stream of smooth local trajectory setpoints that PX4 can comfortably track in Offboard mode.
+Converts sparse waypoints into a continuous high-frequency stream of smooth setpoints for PX4 Offboard mode. Supports teleop integration via joystick.
+
+### 🗺️ vio_mapping
+**MonoSpheres-style OctoMap Builder**
+
+Builds a probabilistic OctoMap from OpenVINS feature point clouds using a sparse mesh + free space polyhedron pipeline, with native dual-camera support. Publishes `octomap_msgs/Octomap` directly to the path planner.

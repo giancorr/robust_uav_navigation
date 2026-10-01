@@ -69,7 +69,7 @@ private:
             // Sewer case: vertical swipe on front wall
             spawn_x = current_x_ + impact_wall_distance_ + 0.05; // slightly more forward on x
             spawn_y = current_y_;
-            spawn_z = current_z_;
+            spawn_z = current_z_ - 0.3;
 
             // Rotate by -pi/2 around Y so that X (length 1.5) goes to Z axis and faces -X
             q = Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI_2, Eigen::Vector3d::UnitY()));
@@ -78,7 +78,7 @@ private:
             double swipe_length = 1.0; 
             spawn_x = current_x_ + (swipe_length / 2.0);
             spawn_y = (current_side_ == "LEFT") ? 0.97 : -0.97;
-            spawn_z = current_z_ - 0.1;
+            spawn_z = current_z_ + 0.15;
 
             double marker_yaw = 0.0;
             if (current_side_ == "LEFT") {

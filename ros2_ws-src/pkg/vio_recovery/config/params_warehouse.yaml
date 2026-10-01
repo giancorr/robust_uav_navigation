@@ -12,12 +12,12 @@ degeneracy_monitor_node:
 
 swipe_spawner:
   ros__parameters:
-    gazebo_world: "corridor"
+    gazebo_world: "leonardo_race"
     impact_wall_distance: 0.3
 
 drop_spawner:
   ros__parameters:
-    gazebo_world: "corridor"
+    gazebo_world: "leonardo_race"
 
 surface_detector_node:
   ros__parameters:
@@ -33,9 +33,9 @@ vio_recovery_aligner_node:
 vio_recovery_fsm_node:
   ros__parameters:
     enable_recovery: true                      # If false, the FSM will ignore VIO failures and not trigger recovery
-    enable_lateral: true                       # If false, skips lateral wall swipe
-    enable_bottom: true                        # If false, skips dropping marker on the ground
-    trigger_on_potentially_inconsistent: true  # If false, only triggers on INCONSISTENT state
+    enable_lateral: false                       # If false, skips lateral wall swipe
+    enable_bottom: true                       # No ground drops in warehouse (open floor)
+    trigger_on_potentially_inconsistent: false # In open warehouse, only trigger on full INCONSISTENT
     min_consistent_to_arm: 10                  # Number of consecutive CONSISTENT messages before FSM arms
     delay_before_drop: 1.5                     # Wait time (seconds) in STOP state before dropping ground marker
     strafe_velocity: 0.10                      # Lateral velocity (m/s) towards the wall
@@ -44,7 +44,7 @@ vio_recovery_fsm_node:
     max_strafe_distance: 5.0                   # Maximum distance (m) to strafe before aborting
     swipe_length: 1.0                          # Length (m) of the forward swipe motion
     swipe_velocity: 0.1                        # Forward velocity (m/s) during SWIPE
-    impact_force_threshold: 2.0                # Force threshold (N) to detect wall contact
+    impact_force_threshold: 2.0               # Force threshold (N) to detect wall contact
 
 target_heuristic_node:
   ros__parameters:
@@ -54,7 +54,7 @@ target_heuristic_node:
 
 wrench_estimator_node:
   ros__parameters:
-    gazebo_world: "corridor"
+    gazebo_world: "leonardo_race"
     gazebo_model: "baby_k_0"
     mass: 2.0
     inertia_xx: 0.0420

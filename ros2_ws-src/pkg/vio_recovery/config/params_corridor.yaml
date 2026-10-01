@@ -1,5 +1,6 @@
 degeneracy_monitor_node:
   ros__parameters:
+    # --- Corridor scenario (baby_k in 'corridor' Gazebo world) ---
     kx1: 350.0
     kx2: 750.0
     ky1: 350.0

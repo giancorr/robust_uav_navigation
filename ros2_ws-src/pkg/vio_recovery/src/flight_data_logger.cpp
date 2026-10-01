@@ -47,7 +47,7 @@ public:
 
         // Our Tactile Odometry (PX4 Input)
         sub_tactile_ = this->create_subscription<px4_msgs::msg::VehicleOdometry>(
-            "/fmu/in/vehicle_visual_odometry", 10,
+            "/fmu/in/vehicle_visual_odometry", qos_px4,
             [this](const px4_msgs::msg::VehicleOdometry::SharedPtr msg) {
                 OdomRecord rec;
                 rec.timestamp = (this->now() - start_time_).seconds();
