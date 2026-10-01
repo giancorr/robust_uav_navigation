@@ -1,75 +1,136 @@
-# OpenVINS RealSense Dual-VIO EKF Fusion
+# UAV Motion Stack — `hardware` branch
 
-This repository provides a complete ROS2 (Humble) environment for tracking odometry using **two Intel RealSense T265 cameras** running independent instances of [OpenVINS](https://docs.openvins.com/), and fusing them into a single, perfectly smoothed trajectory using an Extended Kalman Filter (`robot_localization`).
+Complete ROS 2 (Humble) autonomous flight stack for the **BabyK drone**, integrating real-time Visual-Inertial Odometry (OpenVINS), OptiTrack motion capture, PX4 autopilot, and a VIO Recovery FSM for robust navigation in challenging environments.
 
-## Architecture
+## Architecture Overview
 
-1. **Dual OpenVINS Instances**: 
-   - `cam0` (Front): Provides the absolute global pose (XYZ + Roll, Pitch, Yaw) acting as the spatial anchor.
-   - `cam1` (Back): Provides redundant absolute position (XYZ) to improve stability and tracking robustness.
-2. **Translation Cancellation Node (`odom_to_baselink.cpp`)**: 
-   - Receives raw `nav_msgs/Odometry` from both VIOs.
-   - Cancels the initial arbitrary translation offsets (the physical 22cm gap between the cameras) and the starting yaw, forcing both sensors to mathematically start exactly at `(0,0,0)` in the global frame.
-   - Inflates the VIO measurement covariances by 100x to prevent the EKF from diverging due to sub-millimeter disagreements.
-3. **EKF Fusion (`ekf.yaml`)**:
-   - Uses `robot_localization` with a heavily tuned low-pass kinematic profile (`process_noise_covariance: 0.0001`).
-   - Smoothly averages the two independent trajectories into a single, perfectly stable `base_link` output, completely eliminating high-frequency timestamp jitter and physical flexing vibrations.
-4. **Dockerized Environment**:
-   - Everything runs inside an isolated Docker container with GUI forwarding for `RViz2` and `PlotJuggler`.
+```
+uav_motion_stack/
+├── src/                        # ROS 2 workspace sources
+│   ├── pkg/
+│   │   ├── babyk_drone_manager/     # High-level flight orchestration + TMUX sessions
+│   │   ├── drone_odometry/          # PX4 ↔ ROS 2 frame conversion (NED ↔ ENU)
+│   │   ├── path_planner/            # 3D path planning (OMPL + FCL + OctoMap)
+│   │   ├── traj_interp/             # Trajectory interpolation + teleop integration
+│   │   ├── vio_recovery/            # VIO health monitoring + tactile recovery FSM
+│   │   ├── vio_mapping/             # RTABMap-based 3D volumetric mapping
+│   │   ├── open_vins/               # OpenVINS visual-inertial odometry
+│   │   ├── optitrack_listener/      # OptiTrack NatNet SDK driver (mocap2_driver)
+│   │   ├── servo_offboard_control/  # Offboard servo control (marker dropper)
+│   │   └── odometry_tracker/        # EKF odometry fusion utilities
+│   └── px4_ros_com/                 # PX4 ↔ ROS 2 bridge (uXRCE-DDS)
+├── PX4_neabotics/              # PX4 firmware fork (custom vehicle models)
+├── models/                     # Gazebo custom models
+└── ros2_ws-src/                # Simulation-only workspace overlay
+    └── pkg/
+        ├── babyk_drone_manager/ # Simulation configs and flight logs
+        └── vio_recovery/        # Simulation flight logs
+```
 
-## Running the System
+## Quick Start
 
-1. Launch the Docker container:
-   ```bash
-   ./run.sh
-   ```
-2. Build the workspace (inside Docker):
-   ```bash
-   colcon build --packages-select odometry_tracker openvins_bringup
-   ```
-3. Run a TMUX Session:
-   ```bash
-   cd ~/ros2_ws
-   tmuxp load src/pkg/babyk_drone_manager/utils/exploration_optitrack.yml
-   ```
-   (You can replace `exploration_optitrack.yml` with any other available session config depending on your needs, e.g., `flight_session.yml`, `session.yml`, etc.)
-   
+### 1. Build the workspace
+
+```bash
+cd ~/ros2_ws
+colcon build --packages-select \
+  babyk_drone_manager drone_odometry path_planner traj_interp \
+  vio_recovery vio_mapping optitrack_listener2
+source install/setup.bash
+```
+
+### 2. Real Flight (GCS machine)
+
+```bash
+# On the GCS laptop — launches RViz, OptiTrack driver, status monitors, flight data logger
+tmuxp load src/pkg/babyk_drone_manager/utils/gcs.yml
+```
+
+### 3. Real Flight (drone onboard computer)
+
+```bash
+cd ~/ros2_ws
+# ⭐ Recommended — OptiTrack as localization, pairs with gcs.yml on the GCS machine:
+tmuxp load src/pkg/babyk_drone_manager/utils/exploration_optitrack.yml
+
+# Alternative: full OpenVINS-based autonomous exploration:
+tmuxp load src/pkg/babyk_drone_manager/utils/hardware_exploration.yml
+```
+
 ## Available TMUX Profiles
 
-Inside the `src/pkg/babyk_drone_manager/utils/` folder, you will find several `.yml` configurations. They are designed for `tmuxp` and allow you to quickly spawn the exact stack you need. They can be grouped by purpose:
+All session files are in `src/pkg/babyk_drone_manager/utils/`.
 
-### 1. Basic VIO & Estimation
-These profiles focus *purely* on camera tracking and state estimation (no autonomous flight components).
-- **`session.yml`**: Runs a single OpenVINS instance (Front camera) without EKF. Good for basic debugging.
-- **`single_ekf_session.yml`**: Single OpenVINS instance smoothed by the Extended Kalman Filter.
-- **`dual_session.yml`**: Runs both Front and Back OpenVINS instances, fused together by the EKF.
+### Real Hardware
 
-### 2. Basic Flight Setup
-These profiles launch VIO alongside the MAVROS/MicroXRCE DDS bridge for basic manual/stabilized flight.
-- **`flight_session.yml`**: Standard real-world flight (Dual VIO + PX4 Bridge).
-- **`flight_session_back.yml`**: Flight relying exclusively on the back camera.
-- **`flight_session_optitrack.yml`**: Injects OptiTrack motion capture data instead of VIO. Perfect for ground-truth testing.
-- **`flight_session_stereo_ov.yml`**: Uses OpenVINS in a stereo configuration (if applicable) instead of mono.
+| Session | Description |
+|---|---|
+| `gcs.yml` | GCS: RViz + OptiTrack driver + topic monitors + flight data logger |
+| ⭐ `exploration_optitrack.yml` | **Recommended** onboard session: full autonomous stack using OptiTrack for localization — pair with `gcs.yml` on the GCS machine |
+| `hardware_exploration.yml` | Onboard stack with OpenVINS as primary localization (no OptiTrack dependency) |
+| `flight_session.yml` | Standard flight with dual VIO (front + back camera) |
+| `flight_session_optitrack.yml` | Uses OptiTrack instead of VIO for localization |
+| `flight_session_back.yml` | Flight relying exclusively on the back camera |
+| `flight_session_stereo_ov.yml` | OpenVINS in stereo configuration |
+| `flight.yml` | Full real-flight session (navigation + centralized commands) |
+| `test_open_box.yml` | Tests PX4 actuator commands for the marker-dropping servo |
 
-### 3. Full Autonomous Exploration & Recovery
-These profiles launch the complete autonomous stack: Path Planner, Trajectory Interpolator, RTABMap, and the **VIO Recovery FSM**.
-- **`exploration.yml`**: The standard full stack for real-world autonomous exploration.
-- **`exploration_optitrack.yml`**: Full autonomous stack using OptiTrack for localization. Excellent for testing the VIO Recovery FSM safely without risking a crash due to actual VIO loss.
-- **`exploration_back.yml` / `exploration_stereo.yml`**: Exploration using specific camera configurations.
-- **`hardware_exploration.yml`**: Full hardware-in-the-loop autonomous exploration.
-- **`sewer_exploration.yml` / `warehouse_exploration.yml`**: Exploration profiles with parameters explicitly tuned for narrow/specific environments.
+### Estimation Only
 
-### 4. System Manager & Simulation
-These profiles leverage the `babyk_drone_manager` to orchestrate high-level behaviors and simulate environments.
-- **`simulation.yml`**: Full PX4 SITL simulation (Gazebo). Launches virtual cameras, RTABMap, and the `autonomous_test_node` to randomly send goals and test the entire stack.
-- **`flight.yml`**: The real-world counterpart for the system manager. Launches the full navigation stack and handles centralized commands (takeoff, land, flyto).
-- **`test_open_box.yml`**: A utility profile strictly used to test the PX4 actuator commands for the marker-dropping servo.
+| Session | Description |
+|---|---|
+| `session.yml` | Single OpenVINS instance (front camera), no EKF |
+| `single_ekf_session.yml` | Single OpenVINS + EKF smoothing |
+| `dual_session.yml` | Front + back OpenVINS fused by EKF |
 
-## Frame Definitions
-- `global`: The absolute origin `(0,0,0)` where the system initializes.
-- `global_ned`: The North-East-Down orientation of the global frame.
-- `base_link`: The exact center of the drone, tracking in FRD (Forward-Right-Down) convention.
 
-## Hardware Setup
-- Front Camera (`cam0`): +11 cm along the X-axis of `base_link`.
-- Back Camera (`cam1`): -11 cm along the X-axis of `base_link`, physically mounted backwards.
+## Package Summary
+
+| Package | Role |
+|---|---|
+| `babyk_drone_manager` | High-level command dispatch, move manager, flight data logger |
+| `drone_odometry` | NED→ENU conversion, TF publishing, PX4 bridge interface |
+| `path_planner` | OMPL/FCL/OctoMap-based 3D path planning |
+| `traj_interp` | Trajectory interpolation + teleop integration |
+| `vio_recovery` | VIO health monitoring, degeneracy detection, tactile recovery FSM |
+| `vio_mapping` | RTABMap 3D volumetric mapping |
+| `open_vins` | OpenVINS visual-inertial odometry |
+| `optitrack_listener` | OptiTrack NatNet SDK ROS 2 driver (`mocap2_driver`) |
+| `servo_offboard_control` | Servo control for the marker-dropping actuator |
+
+## OptiTrack Configuration
+
+The `gcs.yml` session launches `mocap2_driver` automatically. To configure IPs and rigid body IDs, edit:
+
+```
+src/pkg/optitrack_listener/launch/mocap2_driver.launch.py
+```
+
+Key parameters:
+```python
+'server_address': "192.168.1.2",   # IP of the PC running Motive
+'local_address':  "192.168.1.14",  # IP of the GCS machine
+'rigid_body_ids': [3],             # BabyK rigid body ID in Motive
+```
+
+See [`optitrack_listener/README.md`](src/pkg/optitrack_listener/README.md) for full parameter reference.
+
+## Frame Conventions
+
+| Frame | Description |
+|---|---|
+| `map` | Global origin, fixed in world |
+| `odom` | Local odometry origin (drifts over time) |
+| `base_link` | Drone body center, FRD convention |
+| `optitrack_odom` | OptiTrack world frame |
+
+PX4 uses **NED** internally; all ROS 2 nodes operate in **ENU**. The `drone_odometry` package handles the conversion transparently.
+
+## Related READMEs
+
+- [`src/pkg/babyk_drone_manager/README.md`](src/pkg/babyk_drone_manager/README.md) — Flight orchestration, commands, and TMUX sessions
+- [`src/pkg/drone_odometry/README.md`](src/pkg/drone_odometry/README.md) — NED↔ENU bridge and TF publishing
+- [`src/pkg/path_planner/README.md`](src/pkg/path_planner/README.md) — OMPL path planning and collision avoidance
+- [`src/pkg/traj_interp/README.md`](src/pkg/traj_interp/README.md) — Trajectory interpolation modes
+- [`src/pkg/vio_recovery/README.md`](src/pkg/vio_recovery/README.md) — VIO health monitoring and recovery FSM
+- [`src/pkg/optitrack_listener/README.md`](src/pkg/optitrack_listener/README.md) — OptiTrack NatNet driver
